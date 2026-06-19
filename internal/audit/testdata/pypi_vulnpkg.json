@@ -1,0 +1,10 @@
+{
+  "info": {
+    "home_page": "https://example.com",
+    "project_urls": { "Source": "https://github.com/example/vulnpkg" }
+  },
+  "releases": {
+    "1.0.0": [{ "upload_time_iso_8601": "2019-01-01T00:00:00Z" }],
+    "2.0.0": [{ "upload_time_iso_8601": "2024-01-01T00:00:00Z" }]
+  }
+}
