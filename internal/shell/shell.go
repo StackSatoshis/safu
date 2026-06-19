@@ -19,10 +19,15 @@ import (
 
 // Guard exit-code contract (consumed by the generated snippet):
 //
-//	0          -> approved: run the real command
-//	ExitBlock  -> blocked: abort, do not run the real command
-//	any other  -> safu errored: fail open, run the real command anyway
-const ExitBlock = 10
+//	0            -> approved: run the real command
+//	ExitHandled  -> safu already performed the action (e.g. soft-delete): do
+//	                NOT run the real command; the wrapper returns success
+//	ExitBlock    -> blocked: abort, do not run the real command
+//	any other    -> safu errored: fail open, run the real command anyway
+const (
+	ExitBlock   = 10
+	ExitHandled = 11
+)
 
 // Shell identifies a supported shell.
 type Shell string
@@ -86,8 +91,9 @@ func Commands(wrapped []string) []string {
 }
 
 type tmplData struct {
-	Commands  []string
-	ExitBlock int
+	Commands    []string
+	ExitBlock   int
+	ExitHandled int
 }
 
 // Snippet generates the full sourced snippet for sh wrapping the given config
@@ -98,7 +104,7 @@ func Snippet(sh Shell, wrapped []string) (string, error) {
 		return "", fmt.Errorf("unsupported shell %q", sh)
 	}
 	var buf bytes.Buffer
-	if err := t.Execute(&buf, tmplData{Commands: Commands(wrapped), ExitBlock: ExitBlock}); err != nil {
+	if err := t.Execute(&buf, tmplData{Commands: Commands(wrapped), ExitBlock: ExitBlock, ExitHandled: ExitHandled}); err != nil {
 		return "", fmt.Errorf("generate %s snippet: %w", sh, err)
 	}
 	return buf.String(), nil
@@ -118,7 +124,9 @@ const posixTemplate = `# safu shell integration — source this from your rc fil
   if [ -z "$SAFU_DISABLE" ] && command -v safu >/dev/null 2>&1; then
     safu guard --as {{.}} -- "$@"
     __safu_rc=$?
-    if [ "$__safu_rc" -eq {{$.ExitBlock}} ]; then
+    if [ "$__safu_rc" -eq {{$.ExitHandled}} ]; then
+      return 0
+    elif [ "$__safu_rc" -eq {{$.ExitBlock}} ]; then
       return {{$.ExitBlock}}
     fi
   fi
@@ -132,7 +140,10 @@ const fishTemplate = `# safu shell integration — source this from config.fish.
 function {{.}}
   if test -z "$SAFU_DISABLE"; and type -q safu
     safu guard --as {{.}} -- $argv
-    if test $status -eq {{$.ExitBlock}}
+    set -l __safu_rc $status
+    if test $__safu_rc -eq {{$.ExitHandled}}
+      return 0
+    else if test $__safu_rc -eq {{$.ExitBlock}}
       return {{$.ExitBlock}}
     end
   end

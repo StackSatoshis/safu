@@ -37,6 +37,15 @@ func run(args []string) error {
 		return initCmd(args[1:])
 	case "config":
 		return configCmd(args[1:])
+	case "guard":
+		// guard follows the shell-hook exit-code contract (internal/shell);
+		// it owns its own exit codes, so exit directly.
+		os.Exit(guardCmd(args[1:]))
+		return nil
+	case "undo":
+		return undoCmd(args[1:])
+	case "log":
+		return logCmd(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q (run `safu help`)", args[0])
 	}
@@ -50,10 +59,13 @@ Usage:
 
 Commands:
   audit      Audit a package before install (audit <pypi|npm|crates|brew> <pkg>[@version])
+  guard      Guard a destructive command (used by shell hooks: guard --as <cmd> -- ...)
+  undo       Restore the most recent soft-deleted operation (undo [--list])
+  log        View the activity log (log [--json|--grep|--since|--clear])
   init       Write default config and print shell integration (--shell, --write-rc)
   config     Inspect config (config show | config path)
   version    Print the safu version
   help       Show this help
 
-More commands (guard, z, log, fix) are added per build slice; see SPEC.md.`)
+More commands (z, fix) are added per build slice; see SPEC.md.`)
 }

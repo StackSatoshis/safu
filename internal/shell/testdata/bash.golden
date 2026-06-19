@@ -5,7 +5,9 @@ dd() {
   if [ -z "$SAFU_DISABLE" ] && command -v safu >/dev/null 2>&1; then
     safu guard --as dd -- "$@"
     __safu_rc=$?
-    if [ "$__safu_rc" -eq 10 ]; then
+    if [ "$__safu_rc" -eq 11 ]; then
+      return 0
+    elif [ "$__safu_rc" -eq 10 ]; then
       return 10
     fi
   fi
@@ -16,7 +18,9 @@ git() {
   if [ -z "$SAFU_DISABLE" ] && command -v safu >/dev/null 2>&1; then
     safu guard --as git -- "$@"
     __safu_rc=$?
-    if [ "$__safu_rc" -eq 10 ]; then
+    if [ "$__safu_rc" -eq 11 ]; then
+      return 0
+    elif [ "$__safu_rc" -eq 10 ]; then
       return 10
     fi
   fi
@@ -27,7 +31,9 @@ rm() {
   if [ -z "$SAFU_DISABLE" ] && command -v safu >/dev/null 2>&1; then
     safu guard --as rm -- "$@"
     __safu_rc=$?
-    if [ "$__safu_rc" -eq 10 ]; then
+    if [ "$__safu_rc" -eq 11 ]; then
+      return 0
+    elif [ "$__safu_rc" -eq 10 ]; then
       return 10
     fi
   fi
