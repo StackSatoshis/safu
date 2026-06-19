@@ -146,6 +146,92 @@ var navTemplates = map[Shell]*template.Template{
 	Fish: template.Must(template.New("nav-fish").Parse(navFishTemplate)),
 }
 
+// fixData drives the correction-helper hook templates.
+type fixData struct {
+	Aliases []string // function names, e.g. ["fix","wtf"]
+}
+
+// FixSnippet generates the correction-helper integration: a recorder that tees
+// session stderr to a local file (so the previous command's output is captured
+// AS IT HAPPENS — never by re-running it, invariant #4) plus per-command
+// offset marks, and the fix/wtf functions that feed the stored record to
+// `safu fix` and offer to run the correction.
+//
+// fish is not yet supported (its stderr handling differs); callers should fall
+// back to a notice.
+func FixSnippet(sh Shell, aliases []string) (string, error) {
+	if len(aliases) == 0 {
+		aliases = []string{"fix", "wtf"}
+	}
+	t, ok := fixTemplates[sh]
+	if !ok {
+		return "", fmt.Errorf("fix integration is not yet supported for %s", sh)
+	}
+	var buf bytes.Buffer
+	if err := t.Execute(&buf, fixData{Aliases: aliases}); err != nil {
+		return "", fmt.Errorf("generate %s fix snippet: %w", sh, err)
+	}
+	return buf.String(), nil
+}
+
+var fixTemplates = map[Shell]*template.Template{
+	Bash: template.Must(template.New("fix-bash").Parse(fixBashTemplate)),
+	Zsh:  template.Must(template.New("fix-zsh").Parse(fixZshTemplate)),
+}
+
+// The recorder body is shared by bash and zsh. It tees stderr to a local log
+// and __safu_fix_mark (run at each prompt) tracks the byte range of the last
+// command's stderr. Capping keeps the log bounded.
+const fixRecorder = `: "${SAFU_ERRLOG:=$HOME/.safu/session.err}"
+mkdir -p "$(dirname "$SAFU_ERRLOG")" 2>/dev/null
+exec 2> >(command tee -a "$SAFU_ERRLOG" >&2)
+__safu_err_prev=0
+__safu_err_cur=0
+__safu_fix_mark() {
+  __safu_err_prev=$__safu_err_cur
+  __safu_err_cur=$(wc -c < "$SAFU_ERRLOG" 2>/dev/null || echo 0)
+  if [ "$__safu_err_cur" -gt 1048576 ]; then
+    : > "$SAFU_ERRLOG"
+    __safu_err_prev=0
+    __safu_err_cur=0
+  fi
+}
+`
+
+// The fix function body is shared; {{.}} is the function name.
+const fixFunc = `{{range .Aliases}}{{.}}() {
+  local __safu_code=$?
+  local __safu_last __safu_err __safu_fix
+  __safu_last=$(fc -ln -1 2>/dev/null)
+  __safu_last="${__safu_last#"${__safu_last%%[![:space:]]*}"}"
+  __safu_err=""
+  if [ -f "$SAFU_ERRLOG" ] && [ "$__safu_err_cur" -gt "$__safu_err_prev" ]; then
+    __safu_err=$(tail -c +"$((__safu_err_prev + 1))" "$SAFU_ERRLOG" 2>/dev/null | head -c "$((__safu_err_cur - __safu_err_prev))")
+  fi
+  __safu_fix=$(printf '%s' "$__safu_err" | command safu fix --first --exit "$__safu_code" -- "$__safu_last") || {
+    echo "safu: no correction found" >&2
+    return 1
+  }
+  printf 'fix: %s\n' "$__safu_fix" >&2
+  if [ -n "$SAFU_FIX_YES" ]; then eval "$__safu_fix"; return $?; fi
+  printf 'run it? [y/N] ' >&2
+  local __safu_ans
+  read -r __safu_ans
+  case "$__safu_ans" in
+    y | Y | yes | YES) eval "$__safu_fix" ;;
+  esac
+}
+{{end}}`
+
+const fixZshTemplate = `# safu correction helper (zsh). Source from your rc file.
+` + fixRecorder + `autoload -Uz add-zsh-hook
+add-zsh-hook precmd __safu_fix_mark
+` + fixFunc
+
+const fixBashTemplate = `# safu correction helper (bash). Source from your rc file.
+` + fixRecorder + `PROMPT_COMMAND="__safu_fix_mark${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+` + fixFunc
+
 // __safu_z_add records the current directory on each change. The "changed since
 // last" guard avoids over-counting when a hook fires on every prompt (bash).
 const navRecorder = `__safu_z_add() {

@@ -56,6 +56,7 @@ update_check = {{.Network.UpdateCheck}}             # opt-out; SAFU_NO_UPDATE_CH
 offline = {{.Network.Offline}}                  # master kill switch for all outbound calls
 
 [fix]
+enabled = {{.Fix.Enabled}}                 # opt-in: correction helper (safu fix / wtf) + stderr capture
 aliases = {{strs .Fix.Aliases}}
 require_confirmation = {{.Fix.RequireConfirmation}}
 `

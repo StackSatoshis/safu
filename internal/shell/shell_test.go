@@ -76,6 +76,35 @@ func TestNavSnippetGolden(t *testing.T) {
 	}
 }
 
+func TestFixSnippetGolden(t *testing.T) {
+	for _, sh := range []Shell{Bash, Zsh} {
+		got, err := FixSnippet(sh, []string{"fix", "wtf"})
+		if err != nil {
+			t.Fatalf("FixSnippet(%s): %v", sh, err)
+		}
+		golden := filepath.Join("testdata", "fix-"+string(sh)+".golden")
+		if *update {
+			if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		want, err := os.ReadFile(golden)
+		if err != nil {
+			t.Fatalf("read golden %s: %v (run with -update)", golden, err)
+		}
+		if got != string(want) {
+			t.Errorf("%s fix snippet mismatch:\n--- got ---\n%s", sh, got)
+		}
+	}
+}
+
+func TestFixSnippetFishUnsupported(t *testing.T) {
+	if _, err := FixSnippet(Fish, nil); err == nil {
+		t.Error("fish fix integration should report unsupported")
+	}
+}
+
 func TestNavSnippetCustomCmd(t *testing.T) {
 	got, err := NavSnippet(Zsh, "j")
 	if err != nil {

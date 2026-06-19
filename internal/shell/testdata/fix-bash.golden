@@ -1,0 +1,60 @@
+# safu correction helper (bash). Source from your rc file.
+: "${SAFU_ERRLOG:=$HOME/.safu/session.err}"
+mkdir -p "$(dirname "$SAFU_ERRLOG")" 2>/dev/null
+exec 2> >(command tee -a "$SAFU_ERRLOG" >&2)
+__safu_err_prev=0
+__safu_err_cur=0
+__safu_fix_mark() {
+  __safu_err_prev=$__safu_err_cur
+  __safu_err_cur=$(wc -c < "$SAFU_ERRLOG" 2>/dev/null || echo 0)
+  if [ "$__safu_err_cur" -gt 1048576 ]; then
+    : > "$SAFU_ERRLOG"
+    __safu_err_prev=0
+    __safu_err_cur=0
+  fi
+}
+PROMPT_COMMAND="__safu_fix_mark${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+fix() {
+  local __safu_code=$?
+  local __safu_last __safu_err __safu_fix
+  __safu_last=$(fc -ln -1 2>/dev/null)
+  __safu_last="${__safu_last#"${__safu_last%%[![:space:]]*}"}"
+  __safu_err=""
+  if [ -f "$SAFU_ERRLOG" ] && [ "$__safu_err_cur" -gt "$__safu_err_prev" ]; then
+    __safu_err=$(tail -c +"$((__safu_err_prev + 1))" "$SAFU_ERRLOG" 2>/dev/null | head -c "$((__safu_err_cur - __safu_err_prev))")
+  fi
+  __safu_fix=$(printf '%s' "$__safu_err" | command safu fix --first --exit "$__safu_code" -- "$__safu_last") || {
+    echo "safu: no correction found" >&2
+    return 1
+  }
+  printf 'fix: %s\n' "$__safu_fix" >&2
+  if [ -n "$SAFU_FIX_YES" ]; then eval "$__safu_fix"; return $?; fi
+  printf 'run it? [y/N] ' >&2
+  local __safu_ans
+  read -r __safu_ans
+  case "$__safu_ans" in
+    y | Y | yes | YES) eval "$__safu_fix" ;;
+  esac
+}
+wtf() {
+  local __safu_code=$?
+  local __safu_last __safu_err __safu_fix
+  __safu_last=$(fc -ln -1 2>/dev/null)
+  __safu_last="${__safu_last#"${__safu_last%%[![:space:]]*}"}"
+  __safu_err=""
+  if [ -f "$SAFU_ERRLOG" ] && [ "$__safu_err_cur" -gt "$__safu_err_prev" ]; then
+    __safu_err=$(tail -c +"$((__safu_err_prev + 1))" "$SAFU_ERRLOG" 2>/dev/null | head -c "$((__safu_err_cur - __safu_err_prev))")
+  fi
+  __safu_fix=$(printf '%s' "$__safu_err" | command safu fix --first --exit "$__safu_code" -- "$__safu_last") || {
+    echo "safu: no correction found" >&2
+    return 1
+  }
+  printf 'fix: %s\n' "$__safu_fix" >&2
+  if [ -n "$SAFU_FIX_YES" ]; then eval "$__safu_fix"; return $?; fi
+  printf 'run it? [y/N] ' >&2
+  local __safu_ans
+  read -r __safu_ans
+  case "$__safu_ans" in
+    y | Y | yes | YES) eval "$__safu_fix" ;;
+  esac
+}

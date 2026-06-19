@@ -20,6 +20,7 @@ func initCmd(args []string) error {
 	writeRC := fs.Bool("write-rc", false, "append the snippet to your shell rc file (timestamped backup first)")
 	force := fs.Bool("force", false, "overwrite an existing config.toml")
 	enableNav := fs.Bool("enable-nav", false, "enable smart navigation (safu z) and emit its hook")
+	enableFix := fs.Bool("enable-fix", false, "enable the correction helper (safu fix/wtf) and emit its hook")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -29,13 +30,15 @@ func initCmd(args []string) error {
 	if err != nil {
 		return err
 	}
+	// Status/diagnostics go to stderr so stdout carries ONLY the shell snippet
+	// (so `eval "$(safu init --shell bash)"` works cleanly).
 	if _, statErr := os.Stat(path); statErr == nil && !*force {
-		fmt.Printf("config already exists: %s (use --force to overwrite)\n", path)
+		fmt.Fprintf(os.Stderr, "config already exists: %s (use --force to overwrite)\n", path)
 	} else {
 		if err := config.WriteDefault(path); err != nil {
 			return err
 		}
-		fmt.Printf("wrote default config: %s\n", path)
+		fmt.Fprintf(os.Stderr, "wrote default config: %s\n", path)
 	}
 
 	// 2. Resolve the target shell.
@@ -49,19 +52,29 @@ func initCmd(args []string) error {
 		return fmt.Errorf("%w; pass --shell bash|zsh|fish", err)
 	}
 
-	// --enable-nav: flip navigation.enabled in the file (env-free read so we
-	// don't bake env overrides into the saved config) before generating hooks.
-	if *enableNav {
+	// --enable-nav / --enable-fix: flip the opt-ins in the file (env-free read
+	// so we don't bake env overrides into the saved config) before generating
+	// hooks.
+	if *enableNav || *enableFix {
 		fileCfg, err := config.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		if !fileCfg.Navigation.Enabled {
+		changed := false
+		if *enableNav && !fileCfg.Navigation.Enabled {
 			fileCfg.Navigation.Enabled = true
+			fmt.Fprintln(os.Stderr, "enabled smart navigation (navigation.enabled = true)")
+			changed = true
+		}
+		if *enableFix && !fileCfg.Fix.Enabled {
+			fileCfg.Fix.Enabled = true
+			fmt.Fprintln(os.Stderr, "enabled correction helper (fix.enabled = true)")
+			changed = true
+		}
+		if changed {
 			if err := config.Write(fileCfg, path); err != nil {
 				return err
 			}
-			fmt.Println("enabled smart navigation (navigation.enabled = true)")
 		}
 	}
 
@@ -83,6 +96,15 @@ func initCmd(args []string) error {
 		}
 		snippet = snippet + "\n" + navSnippet
 	}
+	// Append the correction-helper hook when enabled (fish not yet supported).
+	if cfg.Fix.Enabled {
+		fixSnippet, err := shell.FixSnippet(sh, cfg.Fix.Aliases)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		} else {
+			snippet = snippet + "\n" + fixSnippet
+		}
+	}
 
 	// 3. Print, or (opt-in) write to the rc file with a backup.
 	if *writeRC {
@@ -96,18 +118,20 @@ func initCmd(args []string) error {
 			return err
 		}
 		if changed {
-			fmt.Printf("updated %s\n", rc)
+			fmt.Fprintf(os.Stderr, "updated %s\n", rc)
 			if _, statErr := os.Stat(backup); statErr == nil {
-				fmt.Printf("backup: %s\n", backup)
+				fmt.Fprintf(os.Stderr, "backup: %s\n", backup)
 			}
 		} else {
-			fmt.Printf("%s already has safu integration — no change\n", rc)
+			fmt.Fprintf(os.Stderr, "%s already has safu integration — no change\n", rc)
 		}
-		fmt.Printf("Restart your shell or run `source %s` to activate.\n", rc)
+		fmt.Fprintf(os.Stderr, "Restart your shell or run `source %s` to activate.\n", rc)
 		return nil
 	}
 
-	fmt.Printf("\n# Add the following to your %s rc file (or re-run with --write-rc):\n\n", sh)
+	// Print-only: guidance to stderr, the snippet alone to stdout so
+	// `eval "$(safu init --shell bash)"` ingests clean shell code.
+	fmt.Fprintf(os.Stderr, "# Add to your %s rc file, or eval directly, or re-run with --write-rc:\n", sh)
 	fmt.Println(snippet)
 	return nil
 }

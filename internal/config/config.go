@@ -76,6 +76,7 @@ type Network struct {
 }
 
 type Fix struct {
+	Enabled             bool     `toml:"enabled"`
 	Aliases             []string `toml:"aliases"`
 	RequireConfirmation bool     `toml:"require_confirmation"`
 }
@@ -117,7 +118,7 @@ func Default() Config {
 		},
 		TUI:     TUI{Enabled: true},
 		Network: Network{UpdateCheck: true, Offline: false},
-		Fix:     Fix{Aliases: []string{"fix", "wtf"}, RequireConfirmation: true},
+		Fix:     Fix{Enabled: false, Aliases: []string{"fix", "wtf"}, RequireConfirmation: true},
 	}
 }
 
