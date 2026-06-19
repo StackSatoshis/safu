@@ -34,8 +34,9 @@ func run(args []string) error {
 	}
 	switch args[0] {
 	case "version", "--version", "-v":
-		fmt.Println("safu", version)
-		return nil
+		return versionCmd(args[1:])
+	case "update-check":
+		return updateCheckCmd(args[1:])
 	case "help", "--help", "-h":
 		usage()
 		return nil
@@ -87,7 +88,8 @@ Commands:
   bundle     Install/uninstall the preconfigured shell bundle (bundle install --profile …)
   init       Write default config and shell integration (--shell, --write-rc, --enable-nav/-fix/-history, --bundle)
   config     Configure safu (no args = wizard; config show | config path)
-  version    Print the safu version
+  update-check  Check for a newer safu release (opt-out; honors offline)
+  version    Print the safu version (also shows update notices; --no-update-check)
   help       Show this help
 
 More commands (fix) are added per build slice; see SPEC.md.`)
