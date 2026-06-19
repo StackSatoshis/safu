@@ -144,10 +144,11 @@ func Load() (Config, error) {
 	return LoadFile(path)
 }
 
-// LoadFile loads from a specific path. A missing file is not an error — the
-// defaults are used. Env overrides are applied on top of the file, and the
-// result is validated.
-func LoadFile(path string) (Config, error) {
+// ReadFile loads a config from path by overlaying it on the defaults, WITHOUT
+// applying env overrides or validating. Use this when you intend to edit and
+// re-save the file (so env-derived values are not baked in). A missing file is
+// not an error — the defaults are returned.
+func ReadFile(path string) (Config, error) {
 	cfg := Default()
 	data, err := os.ReadFile(path)
 	switch {
@@ -159,6 +160,16 @@ func LoadFile(path string) (Config, error) {
 		// keep defaults
 	default:
 		return cfg, fmt.Errorf("read %s: %w", path, err)
+	}
+	return cfg, nil
+}
+
+// LoadFile loads from a specific path, applies env overrides on top, and
+// validates. A missing file is not an error — the defaults are used.
+func LoadFile(path string) (Config, error) {
+	cfg, err := ReadFile(path)
+	if err != nil {
+		return cfg, err
 	}
 	ApplyEnv(&cfg)
 	if err := cfg.Validate(); err != nil {

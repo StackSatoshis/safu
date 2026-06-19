@@ -1,0 +1,16 @@
+# safu smart navigation (bash). Source from your rc file.
+__safu_z_add() {
+  [ -n "$SAFU_DISABLE" ] && return
+  [ "$PWD" = "$__safu_z_last" ] && return
+  __safu_z_last="$PWD"
+  command safu z --add "$PWD" >/dev/null 2>&1
+}
+PROMPT_COMMAND="__safu_z_add${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+z() {
+  if [ "$#" -eq 0 ]; then
+    builtin cd "$HOME"
+    return
+  fi
+  local __safu_d
+  __safu_d=$(command safu z --resolve -- "$@") && builtin cd "$__safu_d"
+}

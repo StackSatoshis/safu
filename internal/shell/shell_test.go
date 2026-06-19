@@ -53,6 +53,39 @@ func TestSnippetGolden(t *testing.T) {
 	}
 }
 
+func TestNavSnippetGolden(t *testing.T) {
+	for _, sh := range []Shell{Bash, Zsh, Fish} {
+		got, err := NavSnippet(sh, "z")
+		if err != nil {
+			t.Fatalf("NavSnippet(%s): %v", sh, err)
+		}
+		golden := filepath.Join("testdata", "nav-"+string(sh)+".golden")
+		if *update {
+			if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		want, err := os.ReadFile(golden)
+		if err != nil {
+			t.Fatalf("read golden %s: %v (run with -update)", golden, err)
+		}
+		if got != string(want) {
+			t.Errorf("%s nav snippet mismatch:\n--- got ---\n%s", sh, got)
+		}
+	}
+}
+
+func TestNavSnippetCustomCmd(t *testing.T) {
+	got, err := NavSnippet(Zsh, "j")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(got, "j() {") {
+		t.Errorf("custom jump command name not applied:\n%s", got)
+	}
+}
+
 // TestSnippetFailOpen asserts the safety-critical properties of the generated
 // snippet regardless of exact formatting.
 func TestSnippetFailOpen(t *testing.T) {

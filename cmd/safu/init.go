@@ -19,6 +19,7 @@ func initCmd(args []string) error {
 	shellName := fs.String("shell", "", "shell to target: bash|zsh|fish (default: autodetect from $SHELL)")
 	writeRC := fs.Bool("write-rc", false, "append the snippet to your shell rc file (timestamped backup first)")
 	force := fs.Bool("force", false, "overwrite an existing config.toml")
+	enableNav := fs.Bool("enable-nav", false, "enable smart navigation (safu z) and emit its hook")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -48,6 +49,22 @@ func initCmd(args []string) error {
 		return fmt.Errorf("%w; pass --shell bash|zsh|fish", err)
 	}
 
+	// --enable-nav: flip navigation.enabled in the file (env-free read so we
+	// don't bake env overrides into the saved config) before generating hooks.
+	if *enableNav {
+		fileCfg, err := config.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if !fileCfg.Navigation.Enabled {
+			fileCfg.Navigation.Enabled = true
+			if err := config.Write(fileCfg, path); err != nil {
+				return err
+			}
+			fmt.Println("enabled smart navigation (navigation.enabled = true)")
+		}
+	}
+
 	// Use the loaded config's wrapped list (fall back to defaults if unreadable).
 	cfg, loadErr := config.Load()
 	if loadErr != nil {
@@ -57,6 +74,14 @@ func initCmd(args []string) error {
 	snippet, err := shell.Snippet(sh, cfg.Guard.Wrapped)
 	if err != nil {
 		return err
+	}
+	// Append the navigation hook when smart navigation is enabled.
+	if cfg.Navigation.Enabled {
+		navSnippet, err := shell.NavSnippet(sh, cfg.Navigation.Cmd)
+		if err != nil {
+			return err
+		}
+		snippet = snippet + "\n" + navSnippet
 	}
 
 	// 3. Print, or (opt-in) write to the rc file with a backup.

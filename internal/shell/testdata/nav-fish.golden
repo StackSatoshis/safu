@@ -1,0 +1,13 @@
+# safu smart navigation (fish). Source from config.fish.
+function __safu_z_add --on-variable PWD
+  test -n "$SAFU_DISABLE"; and return
+  command safu z --add "$PWD" >/dev/null 2>&1
+end
+function z
+  if test (count $argv) -eq 0
+    builtin cd $HOME
+    return
+  end
+  set -l __safu_d (command safu z --resolve -- $argv)
+  and builtin cd $__safu_d
+end
