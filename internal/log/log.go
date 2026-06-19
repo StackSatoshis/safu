@@ -21,6 +21,7 @@ const (
 	KindWarnProceed = "warn_proceed" // user confirmed a warned command
 	KindSoftDelete  = "soft_delete"  // targets moved to trash
 	KindUndo        = "undo"         // a trashed operation was restored
+	KindAudit       = "audit"        // a package-audit verdict
 )
 
 // Event is a single activity-log record.

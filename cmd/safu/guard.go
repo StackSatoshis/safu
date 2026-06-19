@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"flag"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/StackSatoshis/safu/internal/audit"
 	"github.com/StackSatoshis/safu/internal/config"
 	"github.com/StackSatoshis/safu/internal/guard"
 	safulog "github.com/StackSatoshis/safu/internal/log"
@@ -22,6 +25,7 @@ func guardCmd(args []string) int {
 	fs := flag.NewFlagSet("guard", flag.ContinueOnError)
 	asName := fs.String("as", "", "the command safu is standing in for")
 	force := fs.Bool("force", false, "override a block (typed explicitly)")
+	forceMalicious := fs.Bool("force-malicious", false, "override a confirmed-malicious package block (typed explicitly)")
 	yes := fs.Bool("yes", false, "auto-confirm a warning")
 	if err := fs.Parse(args); err != nil {
 		return 1 // fail open
@@ -49,13 +53,18 @@ func guardCmd(args []string) int {
 		return 1 // fail open
 	}
 
-	cmd := guard.Parse(*asName, argv, env)
-	dec := guard.Classify(cmd, cfg.Guard.Level, env)
-
 	logger := safulog.New(config.Expand(cfg.Log.Dir), cfg.Log.ActivityRetentionDays)
 	if cfg.Log.Enabled {
 		_ = logger.Trim()
 	}
+
+	// Package-audit interception (§5.1): install commands route to the auditor.
+	if _, pkgs, isInstall := guard.ParseInstall(*asName, argv, env.Cwd); isInstall {
+		return auditInstall(cfg, pkgs, *asName, argv, *forceMalicious, *force, *yes, logger)
+	}
+
+	cmd := guard.Parse(*asName, argv, env)
+	dec := guard.Classify(cmd, cfg.Guard.Level, env)
 
 	if dec.Risk != guard.Safe {
 		printDecision(dec)
@@ -111,6 +120,87 @@ func guardCmd(args []string) int {
 		})
 	}
 	return 0
+}
+
+// auditInstall audits the packages of an install command and applies the
+// verdict through the shell-hook exit-code contract: 0 approve (the shell runs
+// the real install) or ExitBlock. It never performs the install itself.
+func auditInstall(cfg config.Config, pkgs []audit.Package, name string, argv []string, forceMalicious, force, yes bool, logger *safulog.Logger) int {
+	cmdline := strings.TrimSpace(name + " " + strings.Join(argv, " "))
+
+	if !cfg.Audit.Enabled {
+		return 0 // auditing disabled: approve
+	}
+	if cfg.Network.Offline {
+		fmt.Fprintln(os.Stderr, "safu: offline — skipping package audit")
+		return 0
+	}
+	if len(pkgs) == 0 {
+		return 0 // nothing to audit (e.g. `npm install` from package.json)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	verdicts, err := audit.New(nil, cfg.AuditConfig()).Audit(ctx, pkgs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "safu: audit error (%v); proceeding unaudited\n", err)
+		return 0 // fail open (§5.5)
+	}
+
+	for _, v := range verdicts {
+		printAuditVerdict(v)
+		if cfg.Log.Enabled {
+			_ = logger.Append(safulog.Event{
+				Kind: safulog.KindAudit, Command: cmdline, Risk: string(v.Level),
+				Targets: []string{v.Package.Name},
+				Detail:  map[string]any{"ecosystem": string(v.Package.Ecosystem), "reasons": reasonCodes(v)},
+			})
+		}
+	}
+
+	risk, malicious := guard.SummarizeAudit(verdicts)
+
+	if malicious && !forceMalicious {
+		fmt.Fprintln(os.Stderr, "safu: BLOCKED — confirmed-malicious package(s) detected.")
+		fmt.Fprintln(os.Stderr, "  override only with the typed flag --force-malicious")
+		return shell.ExitBlock
+	}
+	if malicious {
+		fmt.Fprintln(os.Stderr, "safu: proceeding past malicious package(s) due to --force-malicious")
+		return 0
+	}
+
+	action := guard.Decide(guard.Decision{Risk: risk}, guard.Options{
+		Force: force, Yes: yes, Interactive: isInteractive(),
+	}, ttyPrompter{})
+	if action == guard.BlockIt {
+		fmt.Fprintln(os.Stderr, "safu: install not confirmed")
+		return shell.ExitBlock
+	}
+	return 0
+}
+
+func printAuditVerdict(v audit.Verdict) {
+	coord := v.Package.Name
+	if v.Package.Version != "" {
+		coord += "@" + v.Package.Version
+	}
+	fmt.Fprintf(os.Stderr, "safu audit: %s [%s] %s\n", coord, v.Package.Ecosystem, strings.ToUpper(string(v.Level)))
+	if v.Unverified {
+		fmt.Fprintln(os.Stderr, "  (unverified — a source could not be reached)")
+	}
+	for _, r := range v.Reasons {
+		fmt.Fprintf(os.Stderr, "  - %s\n", r.Detail)
+	}
+}
+
+func reasonCodes(v audit.Verdict) []string {
+	out := make([]string, 0, len(v.Reasons))
+	for _, r := range v.Reasons {
+		out = append(out, r.Code)
+	}
+	return out
 }
 
 func argsAfterSeparator(rest []string) []string {

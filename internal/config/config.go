@@ -88,7 +88,7 @@ func Default() Config {
 			SoftDelete:         true,
 			TrashDir:           "~/.safu/trash",
 			TrashRetentionDays: 7,
-			Wrapped:            []string{"rm", "git-push-force", "dd", "mkfs", "chmod-r", "chown-r"},
+			Wrapped:            []string{"rm", "git-push-force", "dd", "mkfs", "chmod-r", "chown-r", "pip", "npm", "cargo", "brew"},
 		},
 		Audit: Audit{
 			Enabled:           true,
