@@ -1141,8 +1141,9 @@ footer {
     <h2>Verifiable. Local. Silent.</h2>
     <p class="section-intro">
       A tool that intercepts your shell deserves more scrutiny than most. So we built safu to be auditable
-      end-to-end. No account, no telemetry, no servers we operate. The only calls it ever makes leave with
-      nothing but a package name — and you can turn those off too.
+      end-to-end. No account, no telemetry, no servers we operate. It makes exactly two kinds of outbound
+      call — an opt-out update check, and the package audits you ask for, which leave with nothing but a
+      package name — and you can turn both off.
     </p>
 
     <div class="security-grid">
@@ -1166,9 +1167,9 @@ footer {
             <h3>On-device by design <span class="badge badge-local">local-first</span></h3>
             <p>
               The guard, the trash and undo log, and the navigation history all run entirely on your machine —
-              no telemetry, no analytics, no phone-home. Firewall the guard and nothing breaks. The one feature
-              that reaches the network is the package auditor, and only because checking whether a package is
-              malware means asking a public database about it.
+              no telemetry, no analytics, no phone-home. Firewall the guard and nothing breaks. Only two
+              things reach the network — the package auditor (checking whether a package is malware means
+              asking a public database about it) and an opt-out update check — and you can disable both.
             </p>
           </div>
         </div>
