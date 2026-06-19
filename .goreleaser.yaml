@@ -1,0 +1,99 @@
+# GoReleaser config for the safu binary (SPEC.md §12).
+# Builds darwin/linux × amd64/arm64, publishes to GitHub Releases with a
+# checksums.txt, signs the checksums (cosign keyless), and pushes a Homebrew
+# formula to the tap.
+#
+# Artifact names MUST match site/scripts/install.sh:
+#   safu_<version-without-v>_<os>_<arch>.tar.gz   (binary "safu" at archive root)
+#   checksums.txt
+version: 2
+
+project_name: safu
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: safu
+    main: ./cmd/safu
+    binary: safu
+    env:
+      - CGO_ENABLED=0 # static binary, no CGO
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: safu
+    # -> safu_0.1.0_darwin_arm64.tar.gz, with the "safu" binary at the root.
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE*
+      - SECURITY.md
+
+checksum:
+  # install.sh fetches exactly "checksums.txt" (GoReleaser's default name differs).
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# Sign checksums.txt with cosign keyless (Sigstore) — no private key to manage.
+# Requires cosign in CI and `id-token: write`. Remove this block to ship
+# unsigned checksums (install.sh verifies the SHA-256 either way).
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    output: true
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes"
+
+# Push a Homebrew cask to StackSatoshis/homebrew-tap so `brew install
+# StackSatoshis/tap/safu` works. Requires the TAP_GITHUB_TOKEN secret (a PAT
+# with repo scope) and the homebrew-tap repo to exist. Drop this block to skip
+# Homebrew until the tap is set up. (GoReleaser deprecated `brews` in favor of
+# casks for pre-built binaries.)
+homebrew_casks:
+  - name: safu
+    repository:
+      owner: StackSatoshis
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    homepage: "https://safu.sh"
+    description: "A safer, smarter shell — guards destructive commands, audits packages, fixes mistakes."
+    # The binary is unsigned; strip the macOS quarantine flag so it runs.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr",
+                           args: ["-dr", "com.apple.quarantine", "#{staged_path}/safu"],
+                           print_stderr: false
+          end
+
+release:
+  github:
+    owner: StackSatoshis
+    name: safu
+  draft: false
+  prerelease: auto
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
