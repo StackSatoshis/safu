@@ -179,6 +179,65 @@ var fixTemplates = map[Shell]*template.Template{
 	Zsh:  template.Must(template.New("fix-zsh").Parse(fixZshTemplate)),
 }
 
+// HistorySnippet generates the general shell-history integration (SPEC.md
+// §8.2): a recorder that appends each command to safu's local history, and a
+// Ctrl-R widget that opens safu's fuzzy history browser and inserts the chosen
+// command on the line. bash/zsh only (fish deferred). Honors SAFU_DISABLE.
+func HistorySnippet(sh Shell) (string, error) {
+	switch sh {
+	case Bash:
+		return historyBashTemplate, nil
+	case Zsh:
+		return historyZshTemplate, nil
+	default:
+		return "", fmt.Errorf("history integration is not yet supported for %s", sh)
+	}
+}
+
+// Recorder shared by bash and zsh: capture $? first, then the last command via
+// fc, and record it (skipping empties and immediate repeats).
+const historyRecorder = `__safu_hist_record() {
+  local __safu_code=$?
+  [ -n "$SAFU_DISABLE" ] && return $__safu_code
+  local __safu_cmd
+  __safu_cmd=$(fc -ln -1 2>/dev/null)
+  __safu_cmd="${__safu_cmd#"${__safu_cmd%%[![:space:]]*}"}"
+  if [ -z "$__safu_cmd" ] || [ "$__safu_cmd" = "$__safu_hist_last" ]; then
+    return $__safu_code
+  fi
+  __safu_hist_last="$__safu_cmd"
+  command safu history --add --exit "$__safu_code" --dir "$PWD" -- "$__safu_cmd" >/dev/null 2>&1
+  return $__safu_code
+}
+`
+
+const historyZshTemplate = `# safu shell history (zsh). Source from your rc file.
+` + historyRecorder + `autoload -Uz add-zsh-hook
+add-zsh-hook precmd __safu_hist_record
+__safu_history_widget() {
+  local __safu_sel
+  __safu_sel=$(command safu history < /dev/tty) || return
+  if [ -n "$__safu_sel" ]; then
+    BUFFER="$__safu_sel"
+    CURSOR=${#BUFFER}
+  fi
+  zle reset-prompt
+}
+zle -N __safu_history_widget
+bindkey '^R' __safu_history_widget
+`
+
+const historyBashTemplate = `# safu shell history (bash). Source from your rc file.
+` + historyRecorder + `PROMPT_COMMAND="__safu_hist_record${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+__safu_history_widget() {
+  local __safu_sel
+  __safu_sel=$(command safu history < /dev/tty)
+  READLINE_LINE="$__safu_sel"
+  READLINE_POINT=${#READLINE_LINE}
+}
+bind -x '"\C-r": __safu_history_widget'
+`
+
 // The recorder body is shared by bash and zsh. It tees stderr to a local log
 // and __safu_fix_mark (run at each prompt) tracks the byte range of the last
 // command's stderr. Capping keeps the log bounded.

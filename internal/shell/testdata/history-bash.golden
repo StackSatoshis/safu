@@ -1,0 +1,22 @@
+# safu shell history (bash). Source from your rc file.
+__safu_hist_record() {
+  local __safu_code=$?
+  [ -n "$SAFU_DISABLE" ] && return $__safu_code
+  local __safu_cmd
+  __safu_cmd=$(fc -ln -1 2>/dev/null)
+  __safu_cmd="${__safu_cmd#"${__safu_cmd%%[![:space:]]*}"}"
+  if [ -z "$__safu_cmd" ] || [ "$__safu_cmd" = "$__safu_hist_last" ]; then
+    return $__safu_code
+  fi
+  __safu_hist_last="$__safu_cmd"
+  command safu history --add --exit "$__safu_code" --dir "$PWD" -- "$__safu_cmd" >/dev/null 2>&1
+  return $__safu_code
+}
+PROMPT_COMMAND="__safu_hist_record${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+__safu_history_widget() {
+  local __safu_sel
+  __safu_sel=$(command safu history < /dev/tty)
+  READLINE_LINE="$__safu_sel"
+  READLINE_POINT=${#READLINE_LINE}
+}
+bind -x '"\C-r": __safu_history_widget'

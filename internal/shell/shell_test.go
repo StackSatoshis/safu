@@ -105,6 +105,32 @@ func TestFixSnippetFishUnsupported(t *testing.T) {
 	}
 }
 
+func TestHistorySnippetGolden(t *testing.T) {
+	for _, sh := range []Shell{Bash, Zsh} {
+		got, err := HistorySnippet(sh)
+		if err != nil {
+			t.Fatalf("HistorySnippet(%s): %v", sh, err)
+		}
+		golden := filepath.Join("testdata", "history-"+string(sh)+".golden")
+		if *update {
+			if err := os.WriteFile(golden, []byte(got), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		want, err := os.ReadFile(golden)
+		if err != nil {
+			t.Fatalf("read golden %s: %v (run with -update)", golden, err)
+		}
+		if got != string(want) {
+			t.Errorf("%s history snippet mismatch:\n--- got ---\n%s", sh, got)
+		}
+	}
+	if _, err := HistorySnippet(Fish); err == nil {
+		t.Error("fish history integration should report unsupported")
+	}
+}
+
 func TestNavSnippetCustomCmd(t *testing.T) {
 	got, err := NavSnippet(Zsh, "j")
 	if err != nil {

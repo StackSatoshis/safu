@@ -86,6 +86,56 @@ func TestNewRowAndFilter(t *testing.T) {
 	}
 }
 
+func TestHistoryBrowserBuildAndFilter(t *testing.T) {
+	now := time.Date(2026, 6, 19, 15, 0, 0, 0, time.UTC)
+	entries := []safulog.HistoryEntry{
+		{Command: "ls", Time: now, Exit: 0},
+		{Command: "git push", Time: now, Exit: 1},
+		{Command: "ls", Time: now, Exit: 0}, // dup
+	}
+	rows := buildHistRows(entries, now)
+	// Deduped to 2, newest-first (latest "ls" last in dedup → first newest).
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2 (deduped)", len(rows))
+	}
+	if rows[0].command != "ls" {
+		t.Errorf("newest-first ordering wrong: %+v", rows)
+	}
+	// failed flag carried.
+	var sawFailed bool
+	for _, r := range rows {
+		if r.command == "git push" && r.failed {
+			sawFailed = true
+		}
+	}
+	if !sawFailed {
+		t.Error("git push should be marked failed (exit 1)")
+	}
+
+	got := filterHistRows(rows, "push")
+	if len(got) != 1 || got[0].command != "git push" {
+		t.Errorf("filter push = %+v", got)
+	}
+}
+
+func TestHistoryModelSelect(t *testing.T) {
+	now := time.Date(2026, 6, 19, 15, 0, 0, 0, time.UTC)
+	m := newHistoryModel([]safulog.HistoryEntry{
+		{Command: "git status", Time: now},
+		{Command: "npm test", Time: now},
+	}, now)
+	// Enter selects the row under the cursor.
+	mm, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if got := mm.(historyModel).selected; got == "" {
+		t.Error("enter should set a selection")
+	}
+	// Esc cancels (empty selection).
+	mm2, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if got := mm2.(historyModel).selected; got != "" {
+		t.Errorf("esc should cancel, got %q", got)
+	}
+}
+
 // TestLogModelUpdate drives the bubbletea model's Update directly (no TTY) to
 // confirm filtering, navigation, and quit wiring don't panic and behave.
 func TestLogModelUpdate(t *testing.T) {

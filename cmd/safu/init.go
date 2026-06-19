@@ -21,6 +21,7 @@ func initCmd(args []string) error {
 	force := fs.Bool("force", false, "overwrite an existing config.toml")
 	enableNav := fs.Bool("enable-nav", false, "enable smart navigation (safu z) and emit its hook")
 	enableFix := fs.Bool("enable-fix", false, "enable the correction helper (safu fix/wtf) and emit its hook")
+	enableHistory := fs.Bool("enable-history", false, "enable general shell history (Ctrl-R) and emit its hook")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -55,7 +56,7 @@ func initCmd(args []string) error {
 	// --enable-nav / --enable-fix: flip the opt-ins in the file (env-free read
 	// so we don't bake env overrides into the saved config) before generating
 	// hooks.
-	if *enableNav || *enableFix {
+	if *enableNav || *enableFix || *enableHistory {
 		fileCfg, err := config.ReadFile(path)
 		if err != nil {
 			return err
@@ -69,6 +70,11 @@ func initCmd(args []string) error {
 		if *enableFix && !fileCfg.Fix.Enabled {
 			fileCfg.Fix.Enabled = true
 			fmt.Fprintln(os.Stderr, "enabled correction helper (fix.enabled = true)")
+			changed = true
+		}
+		if *enableHistory && !fileCfg.Log.History {
+			fileCfg.Log.History = true
+			fmt.Fprintln(os.Stderr, "enabled shell history (log.history = true)")
 			changed = true
 		}
 		if changed {
@@ -103,6 +109,15 @@ func initCmd(args []string) error {
 			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 		} else {
 			snippet = snippet + "\n" + fixSnippet
+		}
+	}
+	// Append the shell-history hook when enabled (fish not yet supported).
+	if cfg.Log.History {
+		histSnippet, err := shell.HistorySnippet(sh)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+		} else {
+			snippet = snippet + "\n" + histSnippet
 		}
 	}
 
