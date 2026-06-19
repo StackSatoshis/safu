@@ -33,6 +33,10 @@ func run(args []string) error {
 		return nil
 	case "audit":
 		return auditCmd(args[1:])
+	case "init":
+		return initCmd(args[1:])
+	case "config":
+		return configCmd(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q (run `safu help`)", args[0])
 	}
@@ -46,8 +50,10 @@ Usage:
 
 Commands:
   audit      Audit a package before install (audit <pypi|npm|crates|brew> <pkg>[@version])
+  init       Write default config and print shell integration (--shell, --write-rc)
+  config     Inspect config (config show | config path)
   version    Print the safu version
   help       Show this help
 
-More commands (guard, init, z, log, fix) are added per build slice; see SPEC.md.`)
+More commands (guard, z, log, fix) are added per build slice; see SPEC.md.`)
 }
