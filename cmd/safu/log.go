@@ -9,6 +9,7 @@ import (
 
 	"github.com/StackSatoshis/safu/internal/config"
 	safulog "github.com/StackSatoshis/safu/internal/log"
+	"github.com/StackSatoshis/safu/internal/tui"
 )
 
 // logCmd implements the non-interactive `safu log` views. The fuzzy interactive
@@ -51,6 +52,16 @@ func logCmd(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// Interactive browser when on a TTY with no output-shaping flags.
+	if !*asJSON && *grep == "" && *since == "" && isInteractive() {
+		if len(events) == 0 {
+			fmt.Println("no activity logged yet")
+			return nil
+		}
+		return tui.RunLogBrowser(events, time.Now())
+	}
+
 	if len(events) == 0 {
 		fmt.Println("no matching activity")
 		return nil

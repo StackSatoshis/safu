@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/x/term"
+
 	"github.com/StackSatoshis/safu/internal/audit"
 	"github.com/StackSatoshis/safu/internal/config"
 	"github.com/StackSatoshis/safu/internal/guard"
@@ -278,13 +280,11 @@ func humanBytes(b int64) string {
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }
 
-// isInteractive reports whether stdin is a terminal (so we can prompt).
+// isInteractive reports whether we have a real terminal on both stdin and
+// stdout, so it is safe to prompt or launch a TUI. (A char-device check alone
+// is wrong: /dev/null is a char device.)
 func isInteractive() bool {
-	fi, err := os.Stdin.Stat()
-	if err != nil {
-		return false
-	}
-	return fi.Mode()&os.ModeCharDevice != 0
+	return term.IsTerminal(os.Stdin.Fd()) && term.IsTerminal(os.Stdout.Fd())
 }
 
 // ttyPrompter reads a y/N answer from the controlling terminal (/dev/tty) so it

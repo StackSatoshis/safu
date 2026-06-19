@@ -56,6 +56,8 @@ func run(args []string) error {
 		return logCmd(args[1:])
 	case "z":
 		return navCmd(args[1:])
+	case "setup":
+		return setupCmd(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q (run `safu help`)", args[0])
 	}
@@ -73,8 +75,9 @@ Commands:
   undo       Restore the most recent soft-deleted operation (undo [--list])
   log        View the activity log (log [--json|--grep|--since|--clear])
   z          Smart directory jump (z <query>; --add/--list/--clear)
+  setup      Interactive setup/config wizard (TUI)
   init       Write default config and print shell integration (--shell, --write-rc, --enable-nav)
-  config     Inspect config (config show | config path)
+  config     Configure safu (no args = wizard; config show | config path)
   version    Print the safu version
   help       Show this help
 

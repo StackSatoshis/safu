@@ -116,7 +116,8 @@ func initCmd(args []string) error {
 // interactive wizard arrives with the TUI slice.
 func configCmd(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: safu config <show|path>")
+		// No subcommand: launch the interactive wizard (TTY) — same as setup.
+		return setupCmd(nil)
 	}
 	switch args[0] {
 	case "path":
