@@ -22,8 +22,16 @@ func initCmd(args []string) error {
 	enableNav := fs.Bool("enable-nav", false, "enable smart navigation (safu z) and emit its hook")
 	enableFix := fs.Bool("enable-fix", false, "enable the correction helper (safu fix/wtf) and emit its hook")
 	enableHistory := fs.Bool("enable-history", false, "enable general shell history (Ctrl-R) and emit its hook")
+	asBundle := fs.Bool("bundle", false, "install the preconfigured shell bundle")
+	profile := fs.String("profile", "standard", "bundle profile: minimal|standard|teaching (with --bundle)")
+	yes := fs.Bool("yes", false, "skip the bundle confirmation prompt (with --bundle)")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	// --bundle delegates to the bundle installer (SPEC.md §11.4).
+	if *asBundle {
+		return runBundleInstall(bundleOpts{shellName: *shellName, profile: *profile, yes: *yes})
 	}
 
 	// 1. Write the default config.toml (safu's own dir — never the shell).

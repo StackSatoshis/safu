@@ -62,6 +62,8 @@ func run(args []string) error {
 		return fixCmd(args[1:])
 	case "history":
 		return historyCmd(args[1:])
+	case "bundle":
+		return bundleCmd(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q (run `safu help`)", args[0])
 	}
@@ -82,7 +84,8 @@ Commands:
   fix        Suggest a correction for the last command (also: wtf)
   history    Search your shell history (interactive; --search/--list/--json/--clear)
   setup      Interactive setup/config wizard (TUI)
-  init       Write default config and shell integration (--shell, --write-rc, --enable-nav/-fix/-history)
+  bundle     Install/uninstall the preconfigured shell bundle (bundle install --profile …)
+  init       Write default config and shell integration (--shell, --write-rc, --enable-nav/-fix/-history, --bundle)
   config     Configure safu (no args = wizard; config show | config path)
   version    Print the safu version
   help       Show this help
