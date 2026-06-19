@@ -1,0 +1,44 @@
+# Include your project-specific ignores in this file
+# Read about how to use .gitignore: https://help.github.com/articles/ignoring-files
+
+# --- Go ---
+/safu                 # built binary (go build ./cmd/safu)
+safu                  # built binary, anywhere
+/dist-bin/            # local cross-compile output
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test                # test binaries (go test -c)
+*.out                 # profiling / coverage output
+coverage.*
+*.prof
+go.work
+go.work.sum
+vendor/
+
+# --- Website (site/) ---
+site/node_modules/
+site/dist/
+node_modules
+dist
+.cache
+
+# --- Editors / IDEs ---
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Markdown docs (excluded for now; add explicitly with `git add -f <file>.md`) ---
+*.md
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini

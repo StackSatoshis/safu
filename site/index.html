@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>safu.sh — Linux commands that won't nuke your machine</title>
+<meta name="description" content="A safer, smarter shell. Catches destructive commands before they run, audits packages before you install them, and helps you fix mistakes. Local-first. Install with brew or curl.">
+
+<!-- Open Graph -->
+<meta property="og:title" content="safu.sh — Linux commands that won't nuke your machine">
+<meta property="og:description" content="A safer, smarter shell. Catches destructive commands, audits packages before install, and fixes mistakes. Local-first, no telemetry.">
+<meta property="og:url" content="https://safu.sh">
+<meta property="og:type" content="website">
+
+<!-- Fonts: Fraunces for display, JetBrains Mono for code, Geist for body -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg: #fafaf7;
+  --bg-elevated: #ffffff;
+  --ink: #0a0a0a;
+  --ink-muted: #6b6b6b;
+  --ink-faint: #a3a3a3;
+  --line: #e8e6e0;
+  --line-strong: #d4d2cc;
+  --accent: #ff5f1f;
+  --accent-soft: #fff3ec;
+  --success: #00a86b;
+  --warn: #f59e0b;
+  --danger: #dc2626;
+  --term-bg: #0d0d0d;
+  --term-line: #1f1f1f;
+  --term-text: #e5e5e5;
+  --term-muted: #888;
+  --term-green: #4ade80;
+  --term-red: #f87171;
+  --term-yellow: #fbbf24;
+  --term-blue: #60a5fa;
+  --term-prompt: #4ade80;
+  --radius: 10px;
+  --radius-lg: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'cv11';
+}
+
+/* Subtle grain texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.4;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 2;
+}
+
+/* ============ NAV ============ */
+nav {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: rgba(250, 250, 247, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 100;
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--ink);
+  color: var(--bg);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  font-size: 14px;
+}
+
+.nav-links a {
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.nav-links a:hover { color: var(--ink); }
+
+.nav-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink) !important;
+  transition: all 0.15s;
+}
+
+.nav-github:hover {
+  background: var(--ink);
+  color: var(--bg) !important;
+  border-color: var(--ink);
+}
+
+/* ============ HERO ============ */
+.hero {
+  padding: 96px 0 64px;
+  position: relative;
+}
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 24px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.hero-tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+h1 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: clamp(40px, 6vw, 72px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  margin-bottom: 24px;
+  max-width: 18ch;
+}
+
+h1 em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--accent);
+}
+
+.hero-sub {
+  font-size: 19px;
+  color: var(--ink-muted);
+  max-width: 56ch;
+  margin-bottom: 40px;
+  line-height: 1.55;
+}
+
+.hero-sub code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88em;
+  background: var(--ink);
+  color: var(--bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* ============ INSTALL BLOCKS ============ */
+.install-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  max-width: 720px;
+  margin-bottom: 64px;
+}
+
+@media (max-width: 640px) {
+  .install-grid { grid-template-columns: 1fr; }
+}
+
+.install-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.install-card:hover {
+  border-color: var(--line-strong);
+}
+
+.install-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.install-label svg { width: 14px; height: 14px; }
+
+.install-cmd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow: hidden;
+}
+
+.install-cmd code {
+  flex: 1;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.install-cmd code::-webkit-scrollbar { display: none; }
+
+.copy-btn {
+  background: transparent;
+  border: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.copy-btn:hover {
+  color: var(--ink);
+  background: var(--line);
+}
+
+.copy-btn svg { width: 14px; height: 14px; }
+
+.copy-btn.copied {
+  color: var(--success);
+}
+
+/* ============ TERMINAL DEMO ============ */
+/*
+  TERMINAL DEMO COMPONENT
+  ------------------------
+  To swap this out for a real screenshot later:
+  1. Delete the entire `.terminal` div below
+  2. Replace with: <img src="/assets/demo.png" alt="..." class="terminal-img">
+  3. Add .terminal-img { width: 100%; border-radius: var(--radius-lg); box-shadow: ...; }
+
+  Or to keep a video/gif: use <video> or <img> with the same class.
+*/
+
+.terminal-wrap {
+  margin: 0 auto 96px;
+  max-width: 920px;
+  position: relative;
+}
+
+.terminal-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -40px -20px;
+  background: radial-gradient(ellipse at center, rgba(255, 95, 31, 0.08), transparent 70%);
+  z-index: -1;
+  filter: blur(40px);
+}
+
+.terminal {
+  background: var(--term-bg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 8px 24px rgba(0,0,0,0.08),
+    0 24px 64px rgba(0,0,0,0.12);
+  border: 1px solid #2a2a2a;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #161616;
+  border-bottom: 1px solid var(--term-line);
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 7px;
+}
+
+.terminal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3a3a3a;
+}
+
+.terminal-dot.red { background: #ff5f57; }
+.terminal-dot.yellow { background: #febc2e; }
+.terminal-dot.green { background: #28c840; }
+
+.terminal-title {
+  flex: 1;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--term-muted);
+  letter-spacing: 0.02em;
+}
+
+.terminal-body {
+  padding: 20px 22px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--term-text);
+  min-height: 360px;
+  overflow-x: auto;
+}
+
+.term-line {
+  display: block;
+  opacity: 0;
+  animation: termAppear 0.3s ease forwards;
+}
+
+@keyframes termAppear {
+  to { opacity: 1; }
+}
+
+.term-prompt { color: var(--term-prompt); }
+.term-path { color: var(--term-blue); }
+.term-cmd { color: var(--term-text); }
+.term-flag { color: var(--term-yellow); }
+.term-comment { color: var(--term-muted); }
+.term-danger { color: var(--term-red); font-weight: 600; }
+.term-success { color: var(--term-green); }
+.term-warn { color: var(--term-yellow); }
+.term-dim { color: var(--term-muted); }
+
+.term-box {
+  display: inline-block;
+  border: 1px solid var(--term-red);
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  background: rgba(248, 113, 113, 0.05);
+}
+
+.term-box-safe {
+  border-color: var(--term-green);
+  background: rgba(74, 222, 128, 0.05);
+}
+
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: var(--term-text);
+  vertical-align: text-bottom;
+  animation: blink 1s infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* ============ FEATURES ============ */
+.section {
+  padding: 80px 0;
+  border-top: 1px solid var(--line);
+}
+
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 16px;
+}
+
+.section h2 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  margin-bottom: 16px;
+  max-width: 20ch;
+}
+
+.section-intro {
+  font-size: 18px;
+  color: var(--ink-muted);
+  max-width: 60ch;
+  margin-bottom: 56px;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 32px;
+}
+
+@media (max-width: 800px) {
+  .features { grid-template-columns: 1fr; }
+}
+
+.feature {
+  display: flex;
+  flex-direction: column;
+}
+
+.feature-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.feature-icon svg { width: 20px; height: 20px; }
+
+.feature h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  margin-bottom: 10px;
+}
+
+.feature p {
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ============ PLATFORM ROW ============ */
+.platforms {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+
+.platform-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+}
+
+.platform-pill.coming {
+  color: var(--ink-faint);
+}
+
+.platform-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.platform-status.pending {
+  background: var(--ink-faint);
+}
+
+/* ============ FOOTER ============ */
+footer {
+  padding: 56px 0 40px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--ink-muted);
+}
+
+.footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+}
+
+.footer-links a {
+  color: var(--ink-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.footer-links a:hover { color: var(--ink); }
+
+/* ============ SECURITY SECTION ============ */
+.section-dark {
+  background: var(--ink);
+  color: var(--bg);
+  border-top: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.section-dark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 0%, rgba(255, 95, 31, 0.15), transparent 50%),
+    radial-gradient(circle at 80% 100%, rgba(74, 222, 128, 0.08), transparent 50%);
+  pointer-events: none;
+}
+
+.section-dark .section-label { color: #ff8a52; }
+.section-dark h2 { color: var(--bg); }
+.section-dark .section-intro { color: rgba(255,255,255,0.65); }
+
+.security-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 56px;
+  align-items: start;
+  position: relative;
+}
+
+@media (max-width: 880px) {
+  .security-grid { grid-template-columns: 1fr; gap: 40px; }
+}
+
+.security-pillars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pillar {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 20px;
+  padding: 24px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.pillar:last-child { border-bottom: none; }
+
+.pillar-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  padding-top: 4px;
+  letter-spacing: 0.05em;
+}
+
+.pillar-body h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.015em;
+  margin-bottom: 8px;
+  color: var(--bg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pillar-body h3 .badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.badge-verify { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+.badge-local  { background: rgba(96, 165, 250, 0.15); color: #93c5fd; }
+.badge-none   { background: rgba(248, 113, 113, 0.15); color: #fca5a5; }
+
+.pillar-body p {
+  color: rgba(255,255,255,0.65);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.pillar-body p code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88em;
+  background: rgba(255,255,255,0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: rgba(255,255,255,0.9);
+}
+
+/* Verification card */
+.verify-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  font-family: 'JetBrains Mono', monospace;
+  position: sticky;
+  top: 96px;
+}
+
+.verify-card-title {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verify-card-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.1);
+}
+
+.verify-line {
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.85);
+  display: block;
+}
+
+.verify-line .term-dim { color: rgba(255,255,255,0.45); }
+.verify-line .term-green { color: var(--term-green); }
+.verify-line .term-yellow { color: var(--term-yellow); }
+.verify-line .term-blue { color: var(--term-blue); }
+
+.verify-cta {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.verify-cta a {
+  font-family: 'Geist', sans-serif;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.verify-cta a:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--bg);
+  border-color: rgba(255,255,255,0.3);
+}
+
+.verify-cta a svg { width: 12px; height: 12px; }
+
+/* ============ INSTALLER WALKTHROUGH ============ */
+.installer-section {
+  background:
+    linear-gradient(to bottom, #fafaf7 0%, #f4f2ec 100%);
+}
+
+.walkthrough {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 56px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+@media (max-width: 880px) {
+  .walkthrough { grid-template-columns: 1fr; gap: 40px; }
+}
+
+.walkthrough-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.wstep {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.wstep-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.wstep h4 {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+
+.wstep p {
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* Installer mock UI */
+.installer-mock {
+  background: var(--term-bg);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.04),
+    0 8px 24px rgba(0,0,0,0.08),
+    0 24px 64px rgba(0,0,0,0.12);
+  border: 1px solid #2a2a2a;
+}
+
+.installer-mock-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: #161616;
+  border-bottom: 1px solid var(--term-line);
+}
+
+.installer-mock-header .terminal-title {
+  flex: 1;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--term-muted);
+}
+
+.installer-mock-body {
+  padding: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--term-text);
+  line-height: 1.7;
+}
+
+.mock-title {
+  font-size: 14px;
+  color: var(--term-text);
+  margin-bottom: 4px;
+}
+
+.mock-sub {
+  color: var(--term-muted);
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+.mock-question {
+  margin-top: 18px;
+  margin-bottom: 10px;
+  color: var(--term-text);
+}
+
+.mock-question::before {
+  content: '?';
+  color: var(--term-green);
+  margin-right: 8px;
+  font-weight: 600;
+}
+
+.mock-options { padding-left: 18px; }
+
+.mock-option {
+  display: block;
+  color: var(--term-muted);
+  padding: 2px 0;
+}
+
+.mock-option.selected {
+  color: var(--term-text);
+}
+
+.mock-option.selected::before {
+  content: '▸ ';
+  color: var(--term-green);
+}
+
+.mock-option:not(.selected)::before {
+  content: '  ';
+}
+
+.mock-level-bar {
+  display: flex;
+  gap: 4px;
+  margin-top: 10px;
+  margin-bottom: 16px;
+}
+
+.mock-level-cell {
+  flex: 1;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.08);
+}
+
+.mock-level-cell.active { background: var(--term-green); }
+.mock-level-cell.active.warn { background: var(--term-yellow); }
+.mock-level-cell.active.danger { background: var(--term-red); }
+
+.mock-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  color: var(--term-muted);
+}
+
+.mock-checkbox.on { color: var(--term-text); }
+
+.mock-checkbox-box {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--term-muted);
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.mock-checkbox.on .mock-checkbox-box {
+  background: var(--term-green);
+  border-color: var(--term-green);
+  color: var(--term-bg);
+}
+
+.mock-hint {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--term-line);
+  color: var(--term-muted);
+  font-size: 11px;
+  display: flex;
+  gap: 16px;
+}
+
+.mock-hint kbd {
+  font-family: inherit;
+  background: rgba(255,255,255,0.08);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: var(--term-text);
+}
+
+/* ============ MOBILE ============ */
+@media (max-width: 640px) {
+  .nav-links a:not(.nav-github) { display: none; }
+  .hero { padding: 56px 0 40px; }
+  .terminal-body { font-size: 12px; padding: 16px; }
+  .section { padding: 56px 0; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="container nav-inner">
+    <a href="/" class="logo">
+      <span class="logo-mark">$</span>
+      <span>safu.sh</span>
+    </a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#security">Security</a>
+      <a href="#log">Activity log</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/StackSatoshis/safu" class="nav-github">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <div class="hero-tag">
+      <span class="hero-tag-dot"></span>
+      <span>v0.1 · beta</span>
+    </div>
+    <h1>Linux commands<br>that <em>won't nuke</em><br>your machine.</h1>
+    <p class="hero-sub">
+      A safer, smarter shell. <code>safu</code> intercepts destructive commands and explains what's about
+      to happen, audits packages against known-malware and supply-chain signals <em>before</em> you install them,
+      and helps you fix the command you just fumbled.
+      <strong style="color: var(--ink);">Open source. Local-first. No account, no telemetry, no servers — the only network calls are an opt-out update check and the package audits you ask for.</strong>
+    </p>
+
+    <div class="install-grid" id="install">
+      <div class="install-card">
+        <div class="install-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 5c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z"/></svg>
+          Homebrew · macOS & Linux
+        </div>
+        <div class="install-cmd">
+          <code id="cmd-brew">brew install StackSatoshis/tap/safu</code>
+          <button class="copy-btn" data-copy="cmd-brew" aria-label="Copy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="install-card">
+        <div class="install-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Shell · macOS & Linux
+        </div>
+        <div class="install-cmd">
+          <code id="cmd-curl">curl -fsSL https://safu.sh/install.sh | sh</code>
+          <button class="copy-btn" data-copy="cmd-curl" aria-label="Copy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TERMINAL DEMO — see CSS comment above for swap instructions   -->
+    <!-- ============================================================ -->
+    <div class="terminal-wrap">
+      <div class="terminal" id="terminal-demo">
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <div class="terminal-dot red"></div>
+            <div class="terminal-dot yellow"></div>
+            <div class="terminal-dot green"></div>
+          </div>
+          <div class="terminal-title">~/projects · safu</div>
+          <div style="width: 52px"></div>
+        </div>
+        <div class="terminal-body" id="terminal-body">
+          <!-- Terminal lines are populated by JS for the typing effect.
+               Static fallback below in case JS is disabled. -->
+          <noscript>
+            <span class="term-line" style="opacity:1">
+              <span class="term-prompt">$</span> <span class="term-cmd">safu rm -rf node_modules</span>
+            </span>
+            <span class="term-line" style="opacity:1">
+              <span class="term-warn">⚠  About to remove 1 directory (412 MB, 28,341 files)</span>
+            </span>
+            <span class="term-line" style="opacity:1">
+              <span class="term-success">✓ Looks safe — proceed? [Y/n]</span>
+            </span>
+          </noscript>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="section" id="how">
+  <div class="container">
+    <div class="section-label">// what it does</div>
+    <h2>A safer, smarter shell.</h2>
+    <p class="section-intro">
+      safu wraps the commands you'd use anyway — no new syntax, no shell rewrite. It guards the
+      destructive ones, vets the packages you install, speeds up the navigation you repeat, and
+      cleans up the commands you fumble. All on your machine.
+    </p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h3>Guards destructive commands</h3>
+        <p>
+          Parses the command before it runs and flags the dangerous patterns — recursive deletes,
+          dd to a disk, wildcard rm in your home directory. Shows file counts and sizes, then asks.
+          Soft-deletes route to a trash you can undo for 7 days.
+        </p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/><circle cx="12" cy="11.5" r="3"/></svg>
+        </div>
+        <h3>Audits packages before install</h3>
+        <p>
+          Before <code>pip</code>, <code>npm</code>, <code>cargo</code>, or <code>brew</code> installs anything, safu checks it against the
+          OSV malicious-package database and registry signals — age, downloads, repo health,
+          typosquatting. Blocks confirmed malware outright.
+        </p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+        </div>
+        <h3>Jumps where you work</h3>
+        <p>
+          A smarter <code>cd</code>. safu learns the directories you use most and lets you jump to them in
+          a couple of keystrokes — <code>z proj</code> instead of a long path. The history stays on your
+          machine and never leaves it.
+        </p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+        </div>
+        <h3>Fixes the command you fumbled</h3>
+        <p>
+          Typo'd a subcommand? Forgot <code>sudo</code>? Type <code>fix</code> (or <code>wtf</code>) and safu suggests the
+          correction. Unlike older tools, it never re-runs a destructive command to figure out the
+          fix — it reads the error you already got.
+        </p>
+      </div>
+    </div>
+
+    <div class="platforms">
+      <div class="platform-pill"><span class="platform-status"></span> macOS · arm64</div>
+      <div class="platform-pill"><span class="platform-status"></span> macOS · amd64</div>
+      <div class="platform-pill"><span class="platform-status"></span> Linux · amd64</div>
+      <div class="platform-pill"><span class="platform-status"></span> Linux · arm64</div>
+      <div class="platform-pill coming"><span class="platform-status pending"></span> Windows · soon</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SECURITY ============ -->
+<section class="section section-dark" id="security">
+  <div class="container">
+    <div class="section-label">// security &amp; privacy</div>
+    <h2>Verifiable. Local. Silent.</h2>
+    <p class="section-intro">
+      A tool that intercepts your shell deserves more scrutiny than most. So we built safu to be auditable
+      end-to-end. No account, no telemetry, no servers we operate. The only calls it ever makes leave with
+      nothing but a package name — and you can turn those off too.
+    </p>
+
+    <div class="security-grid">
+      <div class="security-pillars">
+
+        <div class="pillar">
+          <div class="pillar-num">01</div>
+          <div class="pillar-body">
+            <h3>Open source &amp; reproducible <span class="badge badge-verify">verifiable</span></h3>
+            <p>
+              Every line of safu is on GitHub under a permissive license. Releases are built by GitHub
+              Actions from a tagged commit, signed, and published with SHA-256 checksums. You can clone,
+              audit, and rebuild from source to confirm the binary you installed matches the source you read.
+            </p>
+          </div>
+        </div>
+
+        <div class="pillar">
+          <div class="pillar-num">02</div>
+          <div class="pillar-body">
+            <h3>On-device by design <span class="badge badge-local">local-first</span></h3>
+            <p>
+              The guard, the trash and undo log, and the navigation history all run entirely on your machine —
+              no telemetry, no analytics, no phone-home. Firewall the guard and nothing breaks. The one feature
+              that reaches the network is the package auditor, and only because checking whether a package is
+              malware means asking a public database about it.
+            </p>
+          </div>
+        </div>
+
+        <div class="pillar">
+          <div class="pillar-num">03</div>
+          <div class="pillar-body">
+            <h3>We don't have your data <span class="badge badge-none">zero servers</span></h3>
+            <p>
+              No account, no login, no cloud sync, no backend we run that could receive your commands, paths,
+              or repo names. safu makes exactly two kinds of outbound call: an opt-out update check, and the
+              package audits you ask for — which query public registries and OSV.dev with nothing but a package
+              name and version, the same thing you'd disclose by installing it. Third-party scanners stay off
+              unless you turn them on with your own key.
+            </p>
+          </div>
+        </div>
+
+        <div class="pillar">
+          <div class="pillar-num">04</div>
+          <div class="pillar-body">
+            <h3>Verified installer chain <span class="badge badge-verify">signed</span></h3>
+            <p>
+              The shell installer pulls binaries from GitHub Releases and verifies SHA-256 checksums
+              against the signed <code>checksums.txt</code> in the same release before anything touches your
+              <code>PATH</code>. The Homebrew formula does the same. Refuses to install on mismatch.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Verification card -->
+      <div class="verify-card">
+        <div class="verify-card-title">Verify the binary yourself</div>
+        <span class="verify-line"><span class="term-dim"># clone &amp; checkout the release</span></span>
+        <span class="verify-line"><span class="term-green">$</span> git clone <span class="term-blue">https://github.com/StackSatoshis/safu</span></span>
+        <span class="verify-line"><span class="term-green">$</span> cd safu &amp;&amp; git checkout <span class="term-yellow">v0.1.0</span></span>
+        <span class="verify-line">&nbsp;</span>
+        <span class="verify-line"><span class="term-dim"># rebuild locally</span></span>
+        <span class="verify-line"><span class="term-green">$</span> go build -o safu-local .</span>
+        <span class="verify-line">&nbsp;</span>
+        <span class="verify-line"><span class="term-dim"># compare to the installed binary</span></span>
+        <span class="verify-line"><span class="term-green">$</span> sha256sum safu-local \\</span>
+        <span class="verify-line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="term-dim">$(which safu)</span></span>
+        <span class="verify-line">&nbsp;</span>
+        <span class="verify-line"><span class="term-green">✓</span> hashes match — same binary</span>
+
+        <div class="verify-cta">
+          <a href="https://github.com/StackSatoshis/safu">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+            Source
+          </a>
+          <a href="https://github.com/StackSatoshis/safu/releases">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Releases &amp; checksums
+          </a>
+          <a href="https://github.com/StackSatoshis/safu/blob/main/SECURITY.md">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            SECURITY.md
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ INSTALLER WALKTHROUGH ============ -->
+<section class="section installer-section">
+  <div class="container">
+    <div class="section-label">// installer</div>
+    <h2>You decide what safu does.</h2>
+    <p class="section-intro">
+      The installer is a guided setup, not a black box. Before anything writes to your system, it asks
+      what you want protected, how aggressively, and what — if anything — should be stored locally.
+      You can re-run it any time with <code style="font-family:'JetBrains Mono',monospace;background:var(--ink);color:var(--bg);padding:2px 8px;border-radius:4px;font-size:0.88em;">safu config</code>.
+    </p>
+
+    <div class="walkthrough">
+      <div class="walkthrough-steps">
+
+        <div class="wstep">
+          <div class="wstep-num">1</div>
+          <div>
+            <h4>Pick a protection level</h4>
+            <p>
+              Off, light, standard, or paranoid. Light only catches the catastrophic stuff — recursive
+              deletes near root, raw <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">dd</code> to disks. Paranoid asks before
+              touching anything outside the current directory.
+            </p>
+          </div>
+        </div>
+
+        <div class="wstep">
+          <div class="wstep-num">2</div>
+          <div>
+            <h4>Choose which commands to wrap</h4>
+            <p>
+              Toggle individual interceptors — <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">rm</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">git push --force</code>,
+              <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">dd</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">chmod -R</code>, package-manager nukes, and more.
+              Leave the rest of your shell completely untouched.
+            </p>
+          </div>
+        </div>
+
+        <div class="wstep">
+          <div class="wstep-num">3</div>
+          <div>
+            <h4>Decide what gets stored locally</h4>
+            <p>
+              Trash directory for soft-deletes, undo-log retention, and the directory history that powers
+              smart jump (<code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">safu z</code>). All optional, all on disk, all wipeable on demand — and you can
+              exclude any path from being remembered.
+            </p>
+          </div>
+        </div>
+
+        <div class="wstep">
+          <div class="wstep-num">4</div>
+          <div>
+            <h4>Network policy</h4>
+            <p>
+              There are only two outbound paths — the update check and the package auditor. Allow both,
+              disable either, or flip on fully-offline mode and safu makes no network calls at all. The
+              guard works the same either way.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Installer mock UI -->
+      <div class="installer-mock">
+        <div class="installer-mock-header">
+          <div class="terminal-dots">
+            <div class="terminal-dot red"></div>
+            <div class="terminal-dot yellow"></div>
+            <div class="terminal-dot green"></div>
+          </div>
+          <div class="terminal-title">safu init · setup</div>
+          <div style="width: 52px"></div>
+        </div>
+        <div class="installer-mock-body">
+          <div class="mock-title">safu setup</div>
+          <div class="mock-sub">step 2 of 4 · everything stays on this machine</div>
+
+          <div class="mock-question">Protection level</div>
+          <div class="mock-level-bar">
+            <div class="mock-level-cell active"></div>
+            <div class="mock-level-cell active"></div>
+            <div class="mock-level-cell active warn"></div>
+            <div class="mock-level-cell"></div>
+          </div>
+          <div class="mock-options" style="padding-left:0">
+            <span class="mock-option">  off</span>
+            <span class="mock-option">  light · catastrophic only</span>
+            <span class="mock-option selected">standard · recommended</span>
+            <span class="mock-option">  paranoid · confirm everything</span>
+          </div>
+
+          <div class="mock-question" style="margin-top:22px">Wrap which commands?</div>
+          <div style="padding-left:18px">
+            <div class="mock-checkbox on"><span class="mock-checkbox-box">✓</span> rm &amp; rm -rf</div>
+            <div class="mock-checkbox on"><span class="mock-checkbox-box">✓</span> git push --force</div>
+            <div class="mock-checkbox on"><span class="mock-checkbox-box">✓</span> dd, mkfs, fdisk</div>
+            <div class="mock-checkbox"><span class="mock-checkbox-box"></span> chmod -R / chown -R</div>
+            <div class="mock-checkbox"><span class="mock-checkbox-box"></span> docker system prune</div>
+          </div>
+
+          <div class="mock-hint">
+            <span><kbd>↑↓</kbd> move</span>
+            <span><kbd>space</kbd> toggle</span>
+            <span><kbd>enter</kbd> next</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ============ ACTIVITY LOG ============ -->
+<section class="section" id="log">
+  <div class="container">
+    <div class="section-label">// activity log</div>
+    <h2>A record you can actually read.</h2>
+    <p class="section-intro">
+      safu keeps a log of what it did — every block, every soft-delete, every audit verdict, every undo.
+      It's plain text, one line per event, sitting in a file you can <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">cat</code> and <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">grep</code> like
+      any other. No database to crack open, no daemon, nothing hidden. The file <em>is</em> the proof that
+      safu only does what it says.
+    </p>
+
+    <div class="walkthrough">
+      <div class="walkthrough-steps">
+
+        <div class="wstep">
+          <div class="wstep-num">1</div>
+          <div>
+            <h4>Every action, logged in plain text</h4>
+            <p>
+              One JSONL line per event in <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">~/.safu/log</code>. Human-readable, greppable, and
+              wipeable line-by-line with the tools you already have. Configurable retention, on by default
+              for safu's own actions.
+            </p>
+          </div>
+        </div>
+
+        <div class="wstep">
+          <div class="wstep-num">2</div>
+          <div>
+            <h4>Browse it fast</h4>
+            <p>
+              <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">safu log</code> opens a fuzzy, time-aware browser — search by command, by what safu did, or
+              by how long ago (<code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">today</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">3d</code>, <code style="font-family:'JetBrains Mono',monospace;font-size:0.88em;">2w</code>). Built in. No fzf to install,
+              works the same on every box.
+            </p>
+          </div>
+        </div>
+
+        <div class="wstep">
+          <div class="wstep-num">3</div>
+          <div>
+            <h4>Full shell history, if you want it</h4>
+            <p>
+              Opt in at setup to record your whole command history for the same fast search — a local,
+              plain-text answer to Atuin, with no account and no sync. Off by default, with exclude rules so
+              secrets never hit disk.
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Log browser mock -->
+      <div class="installer-mock">
+        <div class="installer-mock-header">
+          <div class="terminal-dots">
+            <div class="terminal-dot red"></div>
+            <div class="terminal-dot yellow"></div>
+            <div class="terminal-dot green"></div>
+          </div>
+          <div class="terminal-title">safu log · search</div>
+          <div style="width: 52px"></div>
+        </div>
+        <div class="installer-mock-body">
+          <div class="mock-title">safu log <span style="color:var(--term-muted)">— 2,184 events</span></div>
+          <div class="mock-sub">› rm<span class="cursor" style="height:13px"></span></div>
+
+          <div style="padding-left:2px">
+            <div class="mock-checkbox on" style="gap:14px"><span style="color:var(--term-muted);min-width:34px">today</span> <span style="color:var(--term-red)">✕ blocked</span> rm -rf ../</div>
+            <div class="mock-checkbox" style="gap:14px"><span style="color:var(--term-muted);min-width:34px">today</span> <span style="color:var(--term-green)">↺ trashed</span> rm -rf node_modules</div>
+            <div class="mock-checkbox" style="gap:14px"><span style="color:var(--term-muted);min-width:34px">2d</span> <span style="color:var(--term-green)">↺ trashed</span> rm -rf dist build</div>
+            <div class="mock-checkbox" style="gap:14px"><span style="color:var(--term-muted);min-width:34px">5d</span> <span style="color:var(--term-yellow)">⚠ confirmed</span> rm *.log</div>
+            <div class="mock-checkbox" style="gap:14px"><span style="color:var(--term-muted);min-width:34px">2w</span> <span style="color:var(--term-red)">✕ blocked</span> rm -rf /opt/data</div>
+          </div>
+
+          <div class="mock-hint">
+            <span><kbd>↑↓</kbd> move</span>
+            <span><kbd>enter</kbd> details</span>
+            <span><kbd>u</kbd> undo</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container footer-inner">
+    <div>
+      © 2026 safu · <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px;">safu.sh</span>
+    </div>
+    <div class="footer-links">
+      <a href="https://github.com/StackSatoshis/safu">GitHub</a>
+      <a href="https://github.com/StackSatoshis/safu/issues">Issues</a>
+      <a href="/install.sh">install.sh</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ============ COPY BUTTONS ============
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const target = document.getElementById(btn.dataset.copy);
+    if (!target) return;
+    try {
+      await navigator.clipboard.writeText(target.textContent.trim());
+      btn.classList.add('copied');
+      const originalHTML = btn.innerHTML;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = originalHTML;
+      }, 1600);
+    } catch (e) {
+      console.error('Copy failed', e);
+    }
+  });
+});
+
+// ============ TERMINAL DEMO ============
+// To replace with a real screenshot: see the comments at the top of the
+// `.terminal-wrap` section in the HTML/CSS above.
+//
+// To edit what the demo shows: just change the `script` array below.
+// Each entry is one rendered line, with a `delay` (ms) before the next line.
+
+const terminalScript = [
+  { html: '<span class="term-prompt">➜</span> <span class="term-path">~/projects/website</span> <span class="term-cmd">safu rm -rf ../</span>', delay: 700 },
+  { html: '', delay: 200 },
+  { html: '<span class="term-danger">  ✕  blocked — refusing to recurse above current dir</span>', delay: 100 },
+  { html: '<span class="term-dim">     target resolves to:</span> <span class="term-yellow">/Users/you</span>', delay: 100 },
+  { html: '<span class="term-dim">     this would remove:</span> <span class="term-yellow">218,431 files · 14.2 GB</span>', delay: 900 },
+  { html: '', delay: 200 },
+  { html: '<span class="term-prompt">➜</span> <span class="term-path">~/projects/website</span> <span class="term-cmd">safu rm -rf node_modules</span>', delay: 700 },
+  { html: '<span class="term-warn">  ⚠  about to remove 1 directory</span>', delay: 100 },
+  { html: '<span class="term-dim">     node_modules/</span>  <span class="term-yellow">28,341 files · 412 MB</span>', delay: 100 },
+  { html: '<span class="term-dim">     last modified 3 days ago · not in .gitignore conflict</span>', delay: 600 },
+  { html: '<span class="term-success">  ✓  this looks safe</span>', delay: 300 },
+  { html: '<span class="term-dim">     moved to ~/.safu/trash · undo with </span><span class="term-blue">safu undo</span>', delay: 500 },
+  { html: '', delay: 200 },
+  { html: '<span class="term-prompt">➜</span> <span class="term-path">~/projects/website</span> <span class="term-cmd">safu pip install spellcheckpy</span>', delay: 700 },
+  { html: '<span class="term-dim">     auditing 1 package · pypi + osv.dev</span>', delay: 500 },
+  { html: '<span class="term-danger">  ✕  blocked — spellcheckpy flagged as malicious</span>', delay: 100 },
+  { html: '<span class="term-dim">     osv: </span><span class="term-yellow">MAL-2026 · payload hidden in package data</span>', delay: 100 },
+  { html: '<span class="term-dim">     published </span><span class="term-yellow">4 days ago</span><span class="term-dim"> · 0 linked repo · typosquats </span><span class="term-yellow">pyspellchecker</span>', delay: 700 },
+  { html: '<span class="term-danger">     override only with --force-malicious</span>', delay: 0 },
+];
+
+const body = document.getElementById('terminal-body');
+let typingTimeout = null;
+
+function renderTerminal() {
+  if (!body) return;
+  body.innerHTML = '';
+  let delay = 0;
+
+  terminalScript.forEach((line, i) => {
+    delay += line.delay || 0;
+    typingTimeout = setTimeout(() => {
+      const el = document.createElement('span');
+      el.className = 'term-line';
+      el.innerHTML = line.html || '&nbsp;';
+      body.appendChild(el);
+
+      // Add a blinking cursor to the final line
+      if (i === terminalScript.length - 1) {
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        el.appendChild(cursor);
+      }
+
+      // Auto-scroll if content overflows
+      body.scrollTop = body.scrollHeight;
+    }, delay);
+  });
+}
+
+// Run once on load. Optionally rerun when the terminal scrolls into view.
+if ('IntersectionObserver' in window) {
+  const obs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        renderTerminal();
+        obs.disconnect();
+      }
+    });
+  }, { threshold: 0.3 });
+  obs.observe(document.getElementById('terminal-demo'));
+} else {
+  renderTerminal();
+}
+</script>
+
+</body>
+</html>
