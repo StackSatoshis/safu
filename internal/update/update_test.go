@@ -41,9 +41,10 @@ func TestFetchAndCache(t *testing.T) {
 	if latest != "v1.2.0" {
 		t.Errorf("latest = %q, want v1.2.0", latest)
 	}
-	// State persisted.
+	// State persisted. Compare the instant with Equal (not ==): a JSON
+	// round-trip changes the time's *Location, so == is timezone-brittle.
 	st := c.load()
-	if st.LatestVersion != "v1.2.0" || st.LastCheck != now {
+	if st.LatestVersion != "v1.2.0" || !st.LastCheck.Equal(now) {
 		t.Errorf("state not cached: %+v", st)
 	}
 	if hits != 1 {
