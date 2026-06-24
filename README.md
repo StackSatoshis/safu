@@ -18,13 +18,17 @@ curl -fsSL https://safu.sh/install.sh | sh
 brew install StackSatoshis/tap/safu
 ```
 
-The installer only places the binary. Enabling the shell integration is a separate,
-explicit step:
+The `curl` installer places the binary and then **asks** whether to enable the shell
+integration (it never modifies your shell silently). If you skip that, or installed via
+Homebrew, turn safu on with:
 
 ```sh
-safu init            # print the shell hook (add it to your rc, or use --write-rc)
-safu setup           # interactive setup wizard
+safu setup            # interactive wizard — configures safu AND wires your shell
+# or, non-interactive:
+safu init --write-rc  # add the hook to your shell rc (with a timestamped backup)
 ```
+
+Then restart your shell (or `source` your rc).
 
 ## What it does
 

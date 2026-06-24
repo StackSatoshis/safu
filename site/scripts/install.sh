@@ -167,6 +167,30 @@ if "$DEST" --version >/dev/null 2>&1; then
     ok "${VER_OUTPUT}"
 fi
 
+# --------- Offer to enable the shell integration ---------
+# Installing only places the binary. We never SILENTLY modify your shell — we
+# ask first, then run `safu init --write-rc` (which makes a timestamped backup).
+# Set SAFU_NO_SETUP=1 to skip this prompt in scripted installs.
+if [ -c /dev/tty ] && [ -z "${SAFU_NO_SETUP:-}" ]; then
+    printf "\n%senable safu in your shell now?%s adds the hook to your shell rc, backup made first [Y/n] " \
+        "$BOLD" "$RESET" > /dev/tty
+    read SAFU_ANS < /dev/tty || SAFU_ANS=""
+    case "$SAFU_ANS" in
+        ""|y|Y|yes|YES)
+            if "$DEST" init --write-rc > /dev/tty 2>&1; then
+                ok "shell integration enabled — restart your shell (or open a new tab) to activate"
+            else
+                warn "couldn't enable automatically — run ${BOLD}safu init --write-rc${RESET} yourself"
+            fi
+            ;;
+        *)
+            info "skipped — enable later with ${BOLD}safu setup${RESET} (or ${BOLD}safu init --write-rc${RESET})"
+            ;;
+    esac
+else
+    info "enable the shell integration with ${BOLD}safu setup${RESET} (or ${BOLD}safu init --write-rc${RESET})"
+fi
+
 printf "\n"
 printf "  ${BOLD}done.${RESET} try ${GREEN}${BINARY} --help${RESET} to get started.\n"
 printf "  docs: ${DIM}https://safu.sh${RESET}\n\n"

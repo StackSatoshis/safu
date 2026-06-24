@@ -72,6 +72,10 @@ homebrew_casks:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     homepage: "https://safu.sh"
     description: "A safer, smarter shell — guards destructive commands, audits packages, fixes mistakes."
+    caveats: |
+      safu only places the binary. To turn it on in your shell, run:
+        safu setup            (interactive)
+        safu init --write-rc  (non-interactive)
     # The binary is unsigned; strip the macOS quarantine flag so it runs.
     hooks:
       post:

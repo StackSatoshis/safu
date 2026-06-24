@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/huh"
 
 	"github.com/StackSatoshis/safu/internal/config"
+	"github.com/StackSatoshis/safu/internal/shell"
 	"github.com/StackSatoshis/safu/internal/tui"
 )
 
@@ -43,7 +44,24 @@ func setupCmd(args []string) error {
 	if err := config.Write(updated, path); err != nil {
 		return err
 	}
-	fmt.Printf("saved %s\n", path)
-	fmt.Println("run `safu init` to (re)generate your shell integration")
+	fmt.Printf("✓ saved %s\n", path)
+
+	// Wire the shell so setup actually activates safu (the missing step that
+	// made setup feel like it did nothing). Falls back to a clear instruction
+	// if the shell can't be detected.
+	sh, err := shell.Detect()
+	if err != nil {
+		fmt.Println("could not detect your shell — finish with: safu init --shell <bash|zsh|fish> --write-rc")
+		return nil
+	}
+	snippet, err := buildHook(sh, updated)
+	if err != nil {
+		return err
+	}
+	rc, err := installHook(sh, snippet)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("\nDone. Restart your shell or run: source %s\n", rc)
 	return nil
 }
