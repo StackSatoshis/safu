@@ -92,6 +92,8 @@ release:
     name: safu
   draft: false
   prerelease: auto
+  # Re-runs/re-releases overwrite assets instead of failing on "already_exists".
+  replace_existing_artifacts: true
 
 changelog:
   sort: asc
