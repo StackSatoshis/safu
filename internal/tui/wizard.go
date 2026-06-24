@@ -1,16 +1,14 @@
 package tui
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/charmbracelet/huh"
 
 	"github.com/StackSatoshis/safu/internal/config"
 )
-
-// wrapCatalog is the set of commands offered as guard toggles in the wizard.
-var wrapCatalog = []string{
-	"rm", "git-push-force", "dd", "mkfs", "chmod-r", "chown-r",
-	"pip", "npm", "cargo", "brew",
-}
 
 // answers holds the wizard's collected values, bound to the huh form.
 type answers struct {
@@ -19,8 +17,10 @@ type answers struct {
 	SoftDelete  bool
 	AuditOn     bool
 	NavOn       bool
+	FixOn       bool
 	LogOn       bool
 	HistoryOn   bool
+	HistoryDays string
 	UpdateCheck bool
 	Offline     bool
 }
@@ -33,8 +33,10 @@ func answersFrom(c config.Config) answers {
 		SoftDelete:  c.Guard.SoftDelete,
 		AuditOn:     c.Audit.Enabled,
 		NavOn:       c.Navigation.Enabled,
+		FixOn:       c.Fix.Enabled,
 		LogOn:       c.Log.Enabled,
 		HistoryOn:   c.Log.History,
+		HistoryDays: strconv.Itoa(c.Log.HistoryRetentionDays),
 		UpdateCheck: c.Network.UpdateCheck,
 		Offline:     c.Network.Offline,
 	}
@@ -48,8 +50,12 @@ func applyAnswers(c config.Config, a answers) config.Config {
 	c.Guard.SoftDelete = a.SoftDelete
 	c.Audit.Enabled = a.AuditOn
 	c.Navigation.Enabled = a.NavOn
+	c.Fix.Enabled = a.FixOn
 	c.Log.Enabled = a.LogOn
 	c.Log.History = a.HistoryOn
+	if n, err := strconv.Atoi(strings.TrimSpace(a.HistoryDays)); err == nil && n > 0 {
+		c.Log.HistoryRetentionDays = n
+	}
 	c.Network.UpdateCheck = a.UpdateCheck
 	c.Network.Offline = a.Offline
 	return c
@@ -61,45 +67,46 @@ func applyAnswers(c config.Config, a answers) config.Config {
 func RunSetup(cur config.Config) (config.Config, error) {
 	a := answersFrom(cur)
 
+	// A single page (one huh group) — no jarring screen-clears between pages.
+	// Only the high-value choices are asked; everything else keeps sensible
+	// defaults (auditor on, default wrapped commands, activity log on), which
+	// can be tuned later by editing config.toml.
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Protection level").
 				Description("How aggressively safu guards destructive commands").
 				Options(
-					huh.NewOption("off — pass everything through", "off"),
 					huh.NewOption("light — only catastrophic operations", "light"),
 					huh.NewOption("standard — recommended", "standard"),
 					huh.NewOption("paranoid — confirm anything outside CWD", "paranoid"),
+					huh.NewOption("off — pass everything through", "off"),
 				).
 				Value(&a.Level),
-			huh.NewMultiSelect[string]().
-				Title("Wrapped commands").
-				Description("Which commands the shell hook routes through safu").
-				Options(huh.NewOptions(wrapCatalog...)...).
-				Value(&a.Wrapped),
 			huh.NewConfirm().
-				Title("Soft-delete (trash + undo) instead of permanent rm?").
+				Title("Soft-delete: send rm to a trash you can `safu undo`?").
 				Value(&a.SoftDelete),
-		),
-		huh.NewGroup(
-			huh.NewConfirm().Title("Audit packages before install?").Value(&a.AuditOn),
-			huh.NewConfirm().Title("Enable smart navigation (safu z)?").Value(&a.NavOn),
-		),
-		huh.NewGroup(
-			huh.NewConfirm().Title("Keep an activity log of what safu does?").Value(&a.LogOn),
 			huh.NewConfirm().
-				Title("Also record general shell history? (separate, off by default)").
-				Description("Logs everything you type, locally — a larger disclosure-to-disk").
+				Title("Smart navigation: jump to dirs with `safu z`?").
+				Value(&a.NavOn),
+			huh.NewConfirm().
+				Title("Correction helper: suggest fixes with `fix` / `wtf`?").
+				Description("Captures your last command's stderr locally (no network)").
+				Value(&a.FixOn),
+			huh.NewConfirm().
+				Title("Searchable shell history on Ctrl-R?").
+				Description("Records commands you run, locally — a larger disclosure-to-disk").
 				Value(&a.HistoryOn),
-		),
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title("Check for updates? (the only non-audit outbound call)").
-				Value(&a.UpdateCheck),
-			huh.NewConfirm().
-				Title("Offline mode — disable ALL outbound calls?").
-				Value(&a.Offline),
+			huh.NewInput().
+				Title("Auto-clear shell history after how many days?").
+				Description("Only applies if history is on. Older entries are purged automatically; secrets are never recorded.").
+				Value(&a.HistoryDays).
+				Validate(func(s string) error {
+					if n, err := strconv.Atoi(strings.TrimSpace(s)); err != nil || n <= 0 {
+						return fmt.Errorf("enter a positive number of days")
+					}
+					return nil
+				}),
 		),
 	)
 

@@ -58,6 +58,25 @@ func TestApplyAnswersOverlays(t *testing.T) {
 	}
 }
 
+func TestApplyAnswersHistoryDays(t *testing.T) {
+	cur := config.Default()
+	a := answersFrom(cur)
+
+	a.HistoryDays = "30"
+	if got := applyAnswers(cur, a).Log.HistoryRetentionDays; got != 30 {
+		t.Errorf("history retention = %d, want 30", got)
+	}
+	// Invalid / non-positive input leaves the current value untouched.
+	a.HistoryDays = "nope"
+	if got := applyAnswers(cur, a).Log.HistoryRetentionDays; got != cur.Log.HistoryRetentionDays {
+		t.Errorf("invalid days changed retention to %d", got)
+	}
+	a.HistoryDays = "0"
+	if got := applyAnswers(cur, a).Log.HistoryRetentionDays; got != cur.Log.HistoryRetentionDays {
+		t.Errorf("zero days changed retention to %d", got)
+	}
+}
+
 func TestNewRowAndFilter(t *testing.T) {
 	now := time.Date(2026, 6, 19, 15, 0, 0, 0, time.UTC)
 	r := newRow(safulog.Event{

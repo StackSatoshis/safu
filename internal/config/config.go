@@ -114,7 +114,15 @@ func Default() Config {
 			ActivityRetentionDays: 90,
 			History:               false,
 			HistoryRetentionDays:  90,
-			HistoryExclude:        []string{"*token*", "*secret*", "*password*"},
+			// Commands matching any of these (case-insensitive substring) are
+			// never recorded. Curated to catch common secrets without being so
+			// broad it drops ordinary commands.
+			HistoryExclude: []string{
+				"*token*", "*secret*", "*password*", "*passwd*", "*credential*",
+				"*api_key*", "*apikey*", "*api-key*", "*access_key*", "*private_key*",
+				"*bearer*", "*ghp_*", "*github_pat*", "*xoxb-*", "*xoxp-*",
+				"*aws_secret*", "*-----begin*",
+			},
 		},
 		TUI:     TUI{Enabled: true},
 		Network: Network{UpdateCheck: true, Offline: false},

@@ -119,16 +119,18 @@ func (h *History) Trim() error {
 	}
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	// Cheap path: if the oldest (first) entry isn't stale, nothing to trim.
+	// This keeps Trim fast enough to run on every recorded command.
+	first := firstNonEmpty(sc)
+	if first == nil || !entryStale(first, cutoff) {
+		f.Close()
+		return nil
+	}
 	var kept [][]byte
-	stale := false
 	for sc.Scan() {
 		line := append([]byte(nil), sc.Bytes()...)
-		if len(line) == 0 {
-			continue
-		}
-		var e HistoryEntry
-		if err := json.Unmarshal(line, &e); err == nil && e.Time.Before(cutoff) {
-			stale = true
+		if len(line) == 0 || entryStale(line, cutoff) {
 			continue
 		}
 		kept = append(kept, line)
@@ -136,9 +138,6 @@ func (h *History) Trim() error {
 	f.Close()
 	if err := sc.Err(); err != nil {
 		return fmt.Errorf("scan history: %w", err)
-	}
-	if !stale {
-		return nil
 	}
 	return rewriteLines(h.path, kept)
 }

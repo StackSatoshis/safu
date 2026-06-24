@@ -48,7 +48,11 @@ func historyCmd(args []string) error {
 		if safulog.HistoryExcluded(cmd, cfg.Log.HistoryExclude) {
 			return nil
 		}
-		return h.Append(safulog.HistoryEntry{Command: cmd, Dir: *dir, Exit: *exit})
+		if err := h.Append(safulog.HistoryEntry{Command: cmd, Dir: *dir, Exit: *exit}); err != nil {
+			return err
+		}
+		_ = h.Trim() // auto-clear expired entries (cheap unless the oldest is stale)
+		return nil
 	}
 
 	if *clear {

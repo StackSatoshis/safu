@@ -154,16 +154,18 @@ func (l *Logger) Trim() error {
 	sc := bufio.NewScanner(file)
 	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 
+	// Cheap path: entries are appended chronologically, so if the oldest
+	// (first) line isn't stale, nothing needs trimming.
+	first := firstNonEmpty(sc)
+	if first == nil || !entryStale(first, cutoff) {
+		file.Close()
+		return nil
+	}
+	// The first line is stale: rebuild keeping only non-stale lines.
 	var kept [][]byte
-	stale := false
 	for sc.Scan() {
 		line := append([]byte(nil), sc.Bytes()...)
-		if len(line) == 0 {
-			continue
-		}
-		var e Event
-		if err := json.Unmarshal(line, &e); err == nil && e.Time.Before(cutoff) {
-			stale = true
+		if len(line) == 0 || entryStale(line, cutoff) {
 			continue
 		}
 		kept = append(kept, line)
@@ -171,9 +173,6 @@ func (l *Logger) Trim() error {
 	file.Close()
 	if err := sc.Err(); err != nil {
 		return fmt.Errorf("scan log: %w", err)
-	}
-	if !stale {
-		return nil // nothing expired; avoid the rewrite
 	}
 	return l.rewrite(kept)
 }
@@ -200,6 +199,30 @@ func (l *Logger) rewrite(lines [][]byte) error {
 		return fmt.Errorf("replace log: %w", err)
 	}
 	return nil
+}
+
+// firstNonEmpty advances the scanner to the first non-empty line and returns a
+// copy of it (nil if the file has no content).
+func firstNonEmpty(sc *bufio.Scanner) []byte {
+	for sc.Scan() {
+		if b := sc.Bytes(); len(b) > 0 {
+			return append([]byte(nil), b...)
+		}
+	}
+	return nil
+}
+
+// entryStale reports whether a JSONL line's "time" field is before cutoff. It
+// works for both Event and HistoryEntry lines (both carry "time"). Unparseable
+// lines are treated as not stale (kept).
+func entryStale(line []byte, cutoff time.Time) bool {
+	var e struct {
+		Time time.Time `json:"time"`
+	}
+	if err := json.Unmarshal(line, &e); err != nil {
+		return false
+	}
+	return !e.Time.IsZero() && e.Time.Before(cutoff)
 }
 
 func contains(ss []string, s string) bool {
