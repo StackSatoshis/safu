@@ -1,26 +1,40 @@
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/StackSatoshis/safu/main/site/icon.png" width="88" alt="safu">
+
 # safu
 
-A single, statically-linked Go binary: a safer, smarter shell. It guards destructive
-commands, audits packages before you install them, speeds up navigation, keeps a
-plain-text activity log, and helps you fix the command you just fumbled.
+### Shell commands that won't nuke your machine.
 
-**Local-first: no account, no telemetry, no servers we operate.** safu makes exactly two
-kinds of outbound call — an opt-out update check and the package audits you ask for — and
-both can be turned off.
+A safer, smarter shell. It **guards** destructive commands, **audits** packages before you
+install them, **jumps** to where you work, and **fixes** the command you just fumbled —
+all on your machine.
+
+**Local-first: no account, no telemetry, no servers we operate.**
+
+[**safu.sh**](https://safu.sh) · [Install](#install) · [What it does](#what-it-does) · [Privacy](#privacy) · [Releases](https://github.com/StackSatoshis/safu/releases) · [Security](SECURITY.md)
+
+[![Release](https://img.shields.io/github/v/release/StackSatoshis/safu?color=2ecc71)](https://github.com/StackSatoshis/safu/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+![No CGO](https://img.shields.io/badge/build-static%20Go%20binary-555)
+
+</div>
+
+---
 
 ## Install
 
 ```sh
-# macOS & Linux
-curl -fsSL https://safu.sh/install.sh | sh
-
-# Homebrew
+# Homebrew (macOS & Linux)
 brew install StackSatoshis/tap/safu
+
+# or the shell installer
+curl -fsSL https://safu.sh/install.sh | sh
 ```
 
-The `curl` installer places the binary and then **asks** whether to enable the shell
-integration (it never modifies your shell silently). If you skip that, or installed via
-Homebrew, turn safu on with:
+Installing only places the binary. It then **asks** whether to enable the shell integration —
+or turn it on yourself anytime:
 
 ```sh
 safu setup            # interactive wizard — configures safu AND wires your shell
@@ -28,32 +42,41 @@ safu setup            # interactive wizard — configures safu AND wires your sh
 safu init --write-rc  # add the hook to your shell rc (with a timestamped backup)
 ```
 
-Then restart your shell (or `source` your rc).
+Then restart your shell. Full docs at **[safu.sh](https://safu.sh)**.
 
 ## What it does
 
-- **Guard** — intercepts destructive commands (`rm -rf`, `dd`, force-push, …), previews
-  what they'll do, and confirms before anything irreversible. Deletes go to a trash you can
-  `safu undo`.
-- **Audit** — checks packages against registry, source-repo, and OSV malicious-package
-  signals before `pip`/`npm`/`cargo`/`brew` install them.
-- **Navigate** — `safu z <query>` jumps to your most-used directories.
-- **Fix** — `safu fix` / `wtf` suggests a correction for your last command (it never
-  re-runs the failed command).
-- **Log & history** — a plain-text activity log of what safu did, and an opt-in,
-  fuzzy-searchable shell history.
+🛡️ **Guards destructive commands.** Intercepts `rm -rf`, `dd` to a disk, force-push, and
+friends; previews exactly what they'll do and confirms before anything irreversible. Deletes
+go to a trash you can bring back with `safu undo`.
 
-Everything is local; the guard, logs, navigation, and history never touch the network.
+📦 **Audits packages before install.** Checks `pip` / `npm` / `cargo` / `brew` installs against
+registry, source-repo, and OSV malicious-package signals — and blocks confirmed malware
+outright.
 
-## Repository layout
+🧭 **Jumps where you work.** `safu z <query>` learns your directories and teleports you in a
+couple of keystrokes.
 
+🩹 **Fixes fumbled commands.** `safu fix` (or `wtf`) suggests a correction for your last
+command — and *never* re-runs the failed command to figure it out.
+
+🗒️ **Keeps a plain-text trail.** Every block, soft-delete, and audit verdict is logged as
+human-readable JSONL under `~/.safu`. Opt into a fuzzy, Ctrl-R shell history too.
+
+## Privacy
+
+safu makes exactly **two** kinds of outbound call — an **opt-out update check** and the
+**package audits you ask for** (which send only a package name + version to public registries
+and OSV.dev). The guard, logs, navigation, and history **never touch the network**.
+
+You can verify that yourself:
+
+```sh
+grep -rn "http\." --include="*.go" .   # network calls live ONLY in internal/audit + internal/update
 ```
-.
-├── cmd/safu/    # CLI entry point
-├── internal/    # implementation packages
-├── go.mod       # module github.com/StackSatoshis/safu
-└── site/        # static marketing site (deployed to GitHub Pages)
-```
+
+Third-party scanners stay off unless you enable them with your own key. See [SECURITY.md](SECURITY.md)
+for the full policy and how to report a vulnerability.
 
 ## Build from source
 
@@ -63,13 +86,8 @@ go test ./...           # run the tests
 go run ./cmd/safu help  # run locally
 ```
 
-## Security
-
-Found a vulnerability? Please report it privately — see [SECURITY.md](SECURITY.md).
-
-You can verify the privacy claim yourself: network calls live only in `internal/audit`
-(package audits) and `internal/update` (the opt-out update check).
+Single, statically-linked Go binary (no CGO), cross-compiled to darwin/linux × amd64/arm64.
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE) · © 2026 safu · [safu.sh](https://safu.sh)
